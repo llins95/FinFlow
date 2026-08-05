@@ -89,6 +89,7 @@ class NotificationPurchaseParser {
 
     candidate = candidate
         .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
         .replaceFirst(
           RegExp(
             r'^(?:pagamento|compra|transação)\s*'
