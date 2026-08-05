@@ -60,6 +60,26 @@ void main() {
       expect(savedPicPay.amountInCents, 10000);
     });
 
+    test('lista o histórico e reabre um mês salvo', () async {
+      final store = MemoryFinancialMonthStore();
+      final controller = FinancialMonthController(store);
+      await controller.initialize(now: DateTime(2026, 8, 5));
+
+      await controller.goToNextMonth();
+
+      expect(
+        controller.availableMonths.map((month) => month.storageKey),
+        ['2026-09', '2026-08'],
+      );
+
+      final opened = await controller.goToMonth(2026, 8);
+
+      expect(opened, isTrue);
+      expect(controller.currentMonth.storageKey, '2026-08');
+
+      controller.dispose();
+    });
+
     test('preserva a versão do cliente ao serializar', () {
       final timestamp = DateTime.utc(2026, 8, 5, 19, 30);
       final month = FinancialMonth(
