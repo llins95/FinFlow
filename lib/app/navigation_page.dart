@@ -25,6 +25,7 @@ class NavigationPage extends StatefulWidget {
 
 class _NavigationPageState extends State<NavigationPage> {
   int currentIndex = 0;
+  final Set<int> _visitedPages = <int>{0};
 
   static const items = [
     _NavigationItem(
@@ -61,17 +62,12 @@ class _NavigationPageState extends State<NavigationPage> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      HomePage(controller: widget.controller),
-      CardsPage(controller: widget.controller),
-      const PurchasePage(),
-      const HistoryPage(),
-      const CalendarPage(),
-      SettingsPage(
-        controller: widget.controller,
-        supabaseClient: widget.supabaseClient,
-      ),
-    ];
+    final pages = List<Widget>.generate(
+      items.length,
+      (index) => _visitedPages.contains(index)
+          ? _buildPage(index)
+          : const SizedBox.shrink(),
+    );
     final page = IndexedStack(index: currentIndex, children: pages);
 
     return LayoutBuilder(
@@ -132,9 +128,25 @@ class _NavigationPageState extends State<NavigationPage> {
     );
   }
 
+  Widget _buildPage(int index) {
+    return switch (index) {
+      0 => HomePage(controller: widget.controller),
+      1 => CardsPage(controller: widget.controller),
+      2 => const PurchasePage(),
+      3 => const HistoryPage(),
+      4 => const CalendarPage(),
+      5 => SettingsPage(
+          controller: widget.controller,
+          supabaseClient: widget.supabaseClient,
+        ),
+      _ => const SizedBox.shrink(),
+    };
+  }
+
   void _selectPage(int index) {
     setState(() {
       currentIndex = index;
+      _visitedPages.add(index);
     });
   }
 }
