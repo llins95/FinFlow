@@ -133,7 +133,18 @@ class _NavigationPageState extends State<NavigationPage> {
       0 => HomePage(controller: widget.controller),
       1 => CardsPage(controller: widget.controller),
       2 => const PurchasePage(),
-      3 => const HistoryPage(),
+      3 => HistoryPage(
+          controller: widget.controller,
+          onOpenMonth: (month) async {
+            final opened = await widget.controller.goToMonth(
+              month.year,
+              month.month,
+            );
+            if (opened && mounted) {
+              _selectPage(0);
+            }
+          },
+        ),
       4 => const CalendarPage(),
       5 => SettingsPage(
           controller: widget.controller,
