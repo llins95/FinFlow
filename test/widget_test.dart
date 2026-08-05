@@ -1,30 +1,24 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
+import 'package:finflow/app/app.dart';
+import 'package:finflow/controllers/financial_month_controller.dart';
+import 'package:finflow/shared/financial_month_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:finflow/main.dart';
-
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const FinFlowApp());
+  testWidgets('exibe o resumo financeiro de agosto de 2026', (tester) async {
+    final controller = FinancialMonthController(MemoryFinancialMonthStore());
+    await controller.initialize(now: DateTime(2026, 8, 5));
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpWidget(
+      FinFlowApp(financialMonthController: controller),
+    );
+    await tester.pumpAndSettle();
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('FinFlow'), findsOneWidget);
+    expect(find.text('Agosto 2026'), findsOneWidget);
+    expect(find.text('Total a pagar'), findsOneWidget);
+    expect(find.textContaining('5.759,27'), findsOneWidget);
+    expect(find.textContaining('4.875,57'), findsOneWidget);
+    expect(find.text('Falta'), findsOneWidget);
+    expect(find.textContaining('883,70'), findsOneWidget);
   });
 }

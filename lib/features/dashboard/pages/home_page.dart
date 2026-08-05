@@ -1,114 +1,221 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../services/finance_service.dart';
-import '../../../shared/mock_data.dart';
-import '../widgets/credit_card_tile.dart';
+import '../../../controllers/financial_month_controller.dart';
+import '../../../models/financial_entry.dart';
+import '../../finance/widgets/financial_entry_dialog.dart';
+import '../widgets/financial_entry_section.dart';
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, required this.controller});
+
+  final FinancialMonthController controller;
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormatter = NumberFormat.currency(
-      locale: 'pt_BR',
-      symbol: 'R\$',
-      decimalDigits: 2,
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final financialMonth = controller.currentMonth;
+        final cardInvoices = financialMonth.entriesOfType(
+          FinancialEntryType.cardInvoice,
+        );
+        final expenses = financialMonth.entriesOfType(
+          FinancialEntryType.expense,
+        );
+        final availableEntries = financialMonth.entries
+            .where(
+              (entry) =>
+                  entry.type == FinancialEntryType.income ||
+                  entry.type == FinancialEntryType.previousBalance,
+            )
+            .toList();
+
+        return Scaffold(
+          appBar: AppBar(title: const Text('FinFlow')),
+          body: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+            children: [
+              Text(
+                '${_greeting()}, Murilo 👋',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _MonthSelector(controller: controller),
+              const SizedBox(height: 16),
+              _FinancialOverview(controller: controller),
+              const SizedBox(height: 24),
+              Text(
+                'Toque em qualquer valor para atualizar',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+              FinancialEntrySection(
+                title: 'Faturas dos cartões',
+                icon: Icons.credit_card,
+                entries: cardInvoices,
+                onEdit: (entry) => _editEntry(context, entry),
+              ),
+              const SizedBox(height: 16),
+              FinancialEntrySection(
+                title: 'Despesas',
+                icon: Icons.receipt_long_outlined,
+                entries: expenses,
+                onEdit: (entry) => _editEntry(context, entry),
+                onAdd: () => _addEntry(
+                  context,
+                  FinancialEntryType.expense,
+                  'Adicionar despesa',
+                ),
+                onDelete: (entry) => _deleteEntry(context, entry),
+              ),
+              const SizedBox(height: 16),
+              FinancialEntrySection(
+                title: 'Receitas e saldo anterior',
+                icon: Icons.savings_outlined,
+                entries: availableEntries,
+                onEdit: (entry) => _editEntry(context, entry),
+                onAdd: () => _addEntry(
+                  context,
+                  FinancialEntryType.income,
+                  'Adicionar receita',
+                ),
+                onDelete: (entry) => _deleteEntry(context, entry),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Bom dia';
+    }
+    if (hour < 18) {
+      return 'Boa tarde';
+    }
+    return 'Boa noite';
+  }
+
+  Future<void> _editEntry(
+    BuildContext context,
+    FinancialEntry entry,
+  ) async {
+    final draft = await FinancialEntryDialog.show(
+      context,
+      title: 'Atualizar ${entry.name}',
+      initialName: entry.name,
+      initialAmountInCents: entry.amountInCents,
+      initialRecurring: entry.isRecurring,
+      allowNameEditing: entry.type != FinancialEntryType.cardInvoice,
+      showRecurringOption: entry.type == FinancialEntryType.expense,
+      allowNegative: entry.type == FinancialEntryType.previousBalance,
     );
 
-    final totalPurchases = FinanceService.totalPurchases();
-    final purchasesCount = FinanceService.totalPurchasesCount();
-    final mostUsedCard = FinanceService.mostUsedCard();
-    final monthlyInstallments = FinanceService.estimatedMonthlyInstallments();
+    if (draft == null) {
+      return;
+    }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('FinFlow')),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          const Text(
-            'Boa tarde, Murilo 👋',
-            style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+    await controller.updateEntry(
+      entry.copyWith(
+        name: draft.name,
+        amountInCents: draft.amountInCents,
+        isRecurring: draft.isRecurring,
+      ),
+    );
+  }
+
+  Future<void> _addEntry(
+    BuildContext context,
+    FinancialEntryType type,
+    String title,
+  ) async {
+    final draft = await FinancialEntryDialog.show(
+      context,
+      title: title,
+      showRecurringOption: true,
+    );
+
+    if (draft == null) {
+      return;
+    }
+
+    await controller.addEntry(
+      name: draft.name,
+      amountInCents: draft.amountInCents,
+      type: type,
+      isRecurring: draft.isRecurring,
+    );
+  }
+
+  Future<void> _deleteEntry(
+    BuildContext context,
+    FinancialEntry entry,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excluir lançamento?'),
+        content: Text('Deseja excluir “${entry.name}” deste mês?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
           ),
-          const SizedBox(height: 30),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Resumo financeiro',
-                    style: TextStyle(fontSize: 18),
-                  ),
-                  const SizedBox(height: 10),
-                  const Row(
-                    children: [
-                      Icon(Icons.circle, color: Colors.green, size: 28),
-                      SizedBox(width: 12),
-                      Text(
-                        'Excelente',
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 28),
-                  const Text(
-                    'Total das compras cadastradas',
-                    style: TextStyle(color: Colors.grey, fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    currencyFormatter.format(totalPurchases),
-                    style: const TextStyle(
-                      fontSize: 34,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 16,
-                    children: [
-                      _SummaryItem(
-                        icon: Icons.shopping_bag_outlined,
-                        title: 'Compras',
-                        value: purchasesCount == 1
-                            ? '1 compra'
-                            : '$purchasesCount compras',
-                      ),
-                      _SummaryItem(
-                        icon: Icons.credit_card,
-                        title: 'Cartão mais usado',
-                        value: mostUsedCard,
-                      ),
-                      _SummaryItem(
-                        icon: Icons.calendar_month,
-                        title: 'Parcelas mensais estimadas',
-                        value: currencyFormatter.format(monthlyInstallments),
-                      ),
-                    ],
-                  ),
-                ],
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await controller.removeEntry(entry.id);
+    }
+  }
+}
+
+class _MonthSelector extends StatelessWidget {
+  const _MonthSelector({required this.controller});
+
+  final FinancialMonthController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final month = controller.currentMonth;
+    final formatter = DateFormat('MMMM yyyy', 'pt_BR');
+    final label = toBeginningOfSentenceCase(formatter.format(month.date)) ?? '';
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: controller.canGoToPreviousMonth
+                ? controller.goToPreviousMonth
+                : null,
+            tooltip: 'Mês anterior',
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Expanded(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          const SizedBox(height: 28),
-          const Text(
-            'Meus Cartões',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: mockCards.length,
-            itemBuilder: (context, index) {
-              return CreditCardTile(card: mockCards[index]);
-            },
+          IconButton(
+            onPressed: controller.goToNextMonth,
+            tooltip: 'Próximo mês',
+            icon: const Icon(Icons.chevron_right),
           ),
         ],
       ),
@@ -116,52 +223,111 @@ class HomePage extends StatelessWidget {
   }
 }
 
-class _SummaryItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String value;
+class _FinancialOverview extends StatelessWidget {
+  const _FinancialOverview({required this.controller});
 
-  const _SummaryItem({
-    required this.icon,
-    required this.title,
-    required this.value,
-  });
+  final FinancialMonthController controller;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 260,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 28),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  value,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
+    final month = controller.currentMonth;
+    final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    final hasSurplus = month.balanceInCents >= 0;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = constraints.maxWidth >= 760
+            ? (constraints.maxWidth - 24) / 3
+            : constraints.maxWidth;
+
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            _SummaryCard(
+              width: cardWidth,
+              label: 'Total a pagar',
+              value: currency.format(month.totalDebtInCents / 100),
+              icon: Icons.arrow_upward_rounded,
+              color: Colors.orange,
             ),
+            _SummaryCard(
+              width: cardWidth,
+              label: 'Total disponível',
+              value: currency.format(month.totalAvailableInCents / 100),
+              icon: Icons.arrow_downward_rounded,
+              color: Colors.blue,
+            ),
+            _SummaryCard(
+              width: cardWidth,
+              label: hasSurplus ? 'Sobra' : 'Falta',
+              value: currency.format(month.balanceInCents.abs() / 100),
+              icon: hasSurplus
+                  ? Icons.check_circle_outline
+                  : Icons.error_outline,
+              color: hasSurplus ? Colors.green : Colors.redAccent,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({
+    required this.width,
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final double width;
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: color.withValues(alpha: 0.15),
+                foregroundColor: color,
+                child: Icon(icon),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      value,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

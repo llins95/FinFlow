@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  static ThemeData dark = ThemeData(
+  static final ThemeData dark = ThemeData(
     useMaterial3: true,
 
     brightness: Brightness.dark,
@@ -16,6 +16,16 @@ class AppTheme {
       elevation: 0,
     ),
 
-    cardTheme: const CardThemeData(elevation: 0, margin: EdgeInsets.all(12)),
+    cardTheme: const CardThemeData(
+      elevation: 0,
+      margin: EdgeInsets.all(12),
+      clipBehavior: Clip.antiAlias,
+    ),
+
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: const Color(0xff1c1c1e),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+    ),
   );
 }
