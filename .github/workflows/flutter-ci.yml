@@ -36,9 +36,6 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Export resolved lockfile
-        run: base64 -w0 pubspec.lock
-
       - name: Analyze Dart code
         run: flutter analyze
 
