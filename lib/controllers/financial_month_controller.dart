@@ -1,19 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/financial_entry.dart';
 import '../models/financial_month.dart';
+import '../services/sync_status_controller.dart';
 import '../shared/financial_month_repository.dart';
 import '../shared/initial_financial_data.dart';
 
 class FinancialMonthController extends ChangeNotifier {
-  FinancialMonthController(this._store);
+  FinancialMonthController(this._store) {
+    _remoteSubscription = _store.changes.listen(_handleRemoteMonth);
+  }
 
   static final DateTime firstMonth = DateTime(2026, 8);
 
   final FinancialMonthStore _store;
+  late final StreamSubscription<FinancialMonth> _remoteSubscription;
 
   FinancialMonth? _currentMonth;
   bool _isLoading = false;
+  bool _isDisposed = false;
 
   FinancialMonth get currentMonth {
     final month = _currentMonth;
@@ -25,6 +32,7 @@ class FinancialMonthController extends ChangeNotifier {
 
   bool get isInitialized => _currentMonth != null;
   bool get isLoading => _isLoading;
+  SyncStatusController? get syncStatus => _store.syncStatus;
 
   bool get canGoToPreviousMonth =>
       isInitialized && currentMonth.date.isAfter(firstMonth);
@@ -36,32 +44,44 @@ class FinancialMonthController extends ChangeNotifier {
 
     _setLoading(true);
 
-    final initialMonth =
-        await _store.load(firstMonth.year, firstMonth.month) ??
-        buildInitialFinancialMonth();
-    await _store.save(initialMonth);
-
-    final requestedDate = now ?? DateTime.now();
-    final requestedMonth = DateTime(requestedDate.year, requestedDate.month);
-    final targetMonth = requestedMonth.isBefore(firstMonth)
-        ? firstMonth
-        : requestedMonth;
-
-    var month = initialMonth;
-    while (month.date.isBefore(targetMonth)) {
-      final nextDate = DateTime(month.year, month.month + 1);
-      final storedNextMonth = await _store.load(
-        nextDate.year,
-        nextDate.month,
+    try {
+      var initialMonth = await _store.load(
+        firstMonth.year,
+        firstMonth.month,
       );
-      month = storedNextMonth ?? month.createNextMonth();
-      if (storedNextMonth == null) {
-        await _store.save(month);
-      }
-    }
 
-    _currentMonth = month;
-    _setLoading(false);
+      if (initialMonth == null) {
+        initialMonth = buildInitialFinancialMonth();
+        await _store.save(initialMonth);
+      }
+
+      final requestedDate = now ?? DateTime.now();
+      final requestedMonth = DateTime(
+        requestedDate.year,
+        requestedDate.month,
+      );
+      final targetMonth = requestedMonth.isBefore(firstMonth)
+          ? firstMonth
+          : requestedMonth;
+
+      var month = initialMonth;
+      while (month.date.isBefore(targetMonth)) {
+        final nextDate = DateTime(month.year, month.month + 1);
+        final storedNextMonth = await _store.load(
+          nextDate.year,
+          nextDate.month,
+        );
+        month = storedNextMonth ?? month.createNextMonth();
+        if (storedNextMonth == null) {
+          await _store.save(month);
+        }
+      }
+
+      _currentMonth = month;
+      unawaited(_store.syncNow());
+    } finally {
+      _setLoading(false);
+    }
   }
 
   Future<bool> goToPreviousMonth() async {
@@ -133,8 +153,34 @@ class FinancialMonthController extends ChangeNotifier {
     await _store.save(currentMonth);
   }
 
+  Future<void> syncNow() => _store.syncNow();
+
+  void _handleRemoteMonth(FinancialMonth month) {
+    if (_isDisposed || !isInitialized) {
+      return;
+    }
+
+    if (month.storageKey != currentMonth.storageKey ||
+        month.clientUpdatedAt.isBefore(currentMonth.clientUpdatedAt)) {
+      return;
+    }
+
+    _currentMonth = month;
+    notifyListeners();
+  }
+
   void _setLoading(bool value) {
     _isLoading = value;
-    notifyListeners();
+    if (!_isDisposed) {
+      notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    unawaited(_remoteSubscription.cancel());
+    unawaited(_store.dispose());
+    super.dispose();
   }
 }

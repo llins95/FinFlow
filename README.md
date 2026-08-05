@@ -3,33 +3,48 @@
 Aplicativo pessoal de controle financeiro feito em Flutter para Android e
 Windows.
 
-## Primeira versão financeira
+## Recursos
 
 - mês inicial: agosto de 2026;
-- atualização rápida das faturas de cartão;
-- despesas fixas e avulsas;
-- receitas e saldo do mês anterior;
+- atualização rápida de faturas, despesas e receitas;
 - resumo com total a pagar, total disponível e sobra/falta;
-- valores armazenados em centavos inteiros;
+- valores monetários armazenados em centavos inteiros;
 - persistência local com Hive;
-- criação do próximo mês com lançamentos recorrentes;
-- compras parceladas e calendário preservados do protótipo original.
+- login pessoal por e-mail e senha;
+- sincronização Android–Windows com Supabase Realtime;
+- fila offline com reenvio automático;
+- histórico e criação do próximo mês com itens recorrentes;
+- dados protegidos por RLS e isolados por usuário.
 
-## Próximas etapas
+## Configurar o Supabase
 
-- login pessoal;
-- sincronização Android–Windows com Supabase;
-- fila offline para sincronizar ao reconectar;
-- histórico financeiro mensal e configurações editáveis.
-
-## Executar
+O aplicativo recebe somente a URL e a chave pública do projeto em tempo de
+execução. Nunca use a chave `service_role` no cliente.
 
 ```bash
 flutter pub get
-flutter run -d windows
+
+flutter run -d windows \
+  --dart-define=SUPABASE_URL=https://SEU-PROJETO.supabase.co \
+  --dart-define=SUPABASE_PUBLISHABLE_KEY=SUA-CHAVE-PUBLICA
 ```
 
-Para validar:
+No PowerShell, use uma única linha ou substitua `\` pelo caractere de
+continuação `` ` ``.
+
+Para executar no Android, troque `windows` pelo identificador exibido em:
+
+```bash
+flutter devices
+```
+
+## Banco de dados
+
+As migrações versionadas estão em `supabase/migrations`. Elas criam a tabela
+`financial_months`, as políticas RLS, a função de gravação com controle de
+versão e a publicação Realtime.
+
+## Validar
 
 ```bash
 flutter analyze

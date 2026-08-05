@@ -4,12 +4,15 @@ class FinancialMonth {
   final int year;
   final int month;
   final List<FinancialEntry> entries;
+  final DateTime clientUpdatedAt;
 
   FinancialMonth({
     required this.year,
     required this.month,
     required List<FinancialEntry> entries,
-  }) : entries = List.unmodifiable(entries);
+    DateTime? clientUpdatedAt,
+  }) : entries = List.unmodifiable(entries),
+       clientUpdatedAt = (clientUpdatedAt ?? DateTime.now()).toUtc();
 
   DateTime get date => DateTime(year, month);
 
@@ -92,11 +95,15 @@ class FinancialMonth {
     );
   }
 
+  List<Map<String, Object?>> get entriesJson =>
+      entries.map((entry) => entry.toMap()).toList();
+
   Map<String, Object?> toMap() {
     return {
       'year': year,
       'month': month,
-      'entries': entries.map((entry) => entry.toMap()).toList(),
+      'entries': entriesJson,
+      'clientUpdatedAt': clientUpdatedAt.toIso8601String(),
     };
   }
 
@@ -113,6 +120,33 @@ class FinancialMonth {
             ),
           )
           .toList(),
+      clientUpdatedAt: _parseTimestamp(
+        map['clientUpdatedAt'] ?? map['client_updated_at'],
+      ),
     );
+  }
+
+  factory FinancialMonth.fromSupabaseRow(Map<String, dynamic> row) {
+    return FinancialMonth.fromMap({
+      'year': row['year'],
+      'month': row['month'],
+      'entries': row['entries'],
+      'client_updated_at': row['client_updated_at'],
+    });
+  }
+
+  static DateTime _parseTimestamp(Object? value) {
+    if (value is DateTime) {
+      return value.toUtc();
+    }
+
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+      if (parsed != null) {
+        return parsed.toUtc();
+      }
+    }
+
+    return DateTime.now().toUtc();
   }
 }

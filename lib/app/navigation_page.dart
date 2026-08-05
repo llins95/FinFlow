@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../controllers/financial_month_controller.dart';
 import '../features/calendar/pages/calendar_page.dart';
@@ -9,9 +10,14 @@ import '../features/purchase/pages/purchase_page.dart';
 import '../features/settings/pages/settings_page.dart';
 
 class NavigationPage extends StatefulWidget {
-  const NavigationPage({super.key, required this.controller});
+  const NavigationPage({
+    super.key,
+    required this.controller,
+    this.supabaseClient,
+  });
 
   final FinancialMonthController controller;
+  final SupabaseClient? supabaseClient;
 
   @override
   State<NavigationPage> createState() => _NavigationPageState();
@@ -61,7 +67,10 @@ class _NavigationPageState extends State<NavigationPage> {
       const PurchasePage(),
       const HistoryPage(),
       const CalendarPage(),
-      const SettingsPage(),
+      SettingsPage(
+        controller: widget.controller,
+        supabaseClient: widget.supabaseClient,
+      ),
     ];
     final page = IndexedStack(index: currentIndex, children: pages);
 

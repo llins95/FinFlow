@@ -1,5 +1,6 @@
 import 'package:finflow/controllers/financial_month_controller.dart';
 import 'package:finflow/models/financial_entry.dart';
+import 'package:finflow/models/financial_month.dart';
 import 'package:finflow/shared/financial_month_repository.dart';
 import 'package:finflow/shared/initial_financial_data.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -57,6 +58,21 @@ void main() {
         (entry) => entry.id == 'card-picpay',
       );
       expect(savedPicPay.amountInCents, 10000);
+    });
+
+    test('preserva a versão do cliente ao serializar', () {
+      final timestamp = DateTime.utc(2026, 8, 5, 19, 30);
+      final month = FinancialMonth(
+        year: 2026,
+        month: 8,
+        entries: const [],
+        clientUpdatedAt: timestamp,
+      );
+
+      final restored = FinancialMonth.fromMap(month.toMap());
+
+      expect(restored.clientUpdatedAt, timestamp);
+      expect(restored.storageKey, '2026-08');
     });
   });
 }

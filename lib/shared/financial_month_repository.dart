@@ -1,11 +1,19 @@
-import 'package:hive/hive.dart';
-
 import '../models/financial_month.dart';
+import '../services/sync_status_controller.dart';
+import 'package:hive/hive.dart';
 
 abstract class FinancialMonthStore {
   Future<FinancialMonth?> load(int year, int month);
 
   Future<void> save(FinancialMonth month);
+
+  Stream<FinancialMonth> get changes => const Stream.empty();
+
+  SyncStatusController? get syncStatus => null;
+
+  Future<void> syncNow() async {}
+
+  Future<void> dispose() async {}
 }
 
 class HiveFinancialMonthStore implements FinancialMonthStore {
