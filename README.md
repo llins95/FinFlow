@@ -9,6 +9,7 @@ Windows.
 - atualização rápida de faturas, despesas e receitas;
 - cadastro e edição de cartões, limites, datas e ativação mensal;
 - compras à vista ou parceladas usando os cartões cadastrados;
+- detecção opcional de compras da Carteira do Google no Android;
 - calendário de parcelas com rateio exato em centavos;
 - resumo com total a pagar, total disponível e sobra/falta;
 - valores monetários armazenados em centavos inteiros;
@@ -51,9 +52,22 @@ versão e a publicação Realtime.
 As compras fazem parte do JSON do mês financeiro. Por isso, usam a mesma fila
 offline e a mesma sincronização sem exigir uma segunda tabela.
 
+## Compras detectadas no Android
+
+Na aba **Compra**, toque no ícone de notificações e conceda ao FinFlow o
+**Acesso às notificações** na tela do Android. O serviço considera somente
+alertas da Carteira do Google que contenham um valor em reais.
+
+Cada alerta vira apenas uma sugestão: descrição, valor, cartão e parcelas podem
+ser revisados antes de salvar. O texto bruto da notificação fica localmente no
+Android e não é enviado ao Supabase. Depois da confirmação, somente o registro
+normal da compra é sincronizado. O acesso pode ser revogado a qualquer momento
+nas configurações do sistema.
+
 ## Validar
 
 ```bash
 flutter analyze
 flutter test
+flutter build apk --debug
 ```

@@ -4,9 +4,12 @@ import 'package:intl/intl.dart';
 
 import '../../../controllers/financial_month_controller.dart';
 import '../../../models/financial_entry.dart';
+import '../../../models/notification_purchase_candidate.dart';
 import '../../../services/finance_service.dart';
+import '../../../services/notification_purchase_import_service.dart';
 import '../../../utils/card_mapper.dart';
 import '../../../utils/money_parser.dart';
+import 'notification_import_page.dart';
 
 class PurchasePage extends StatefulWidget {
   const PurchasePage({
@@ -25,6 +28,8 @@ class _PurchasePageState extends State<PurchasePage> {
   final _amountController = TextEditingController(text: '150,00');
   final _installmentsController = TextEditingController(text: '1');
   final _amountFocusNode = FocusNode();
+  final _notificationImportService =
+      const NotificationPurchaseImportService();
 
   final _currency = NumberFormat.currency(
     locale: 'pt_BR',
@@ -39,6 +44,7 @@ class _PurchasePageState extends State<PurchasePage> {
   late DateTime _purchaseDate;
   bool _showSimulation = false;
   bool _purchaseSaved = false;
+  String? _notificationSourceId;
 
   int get _amountInCents =>
       MoneyParser.parseToCents(_amountController.text) ?? 0;
@@ -148,13 +154,71 @@ class _PurchasePageState extends State<PurchasePage> {
       installments: _installments,
       purchaseDate: _purchaseDate,
       cardInvoice: _selectedCard(cards),
+      sourceReference: _notificationSourceId,
     );
 
     if (!mounted) {
       return;
     }
-    setState(() => _purchaseSaved = true);
+    final notificationSourceId = _notificationSourceId;
+    if (notificationSourceId != null) {
+      await _notificationImportService.dismiss(notificationSourceId);
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _purchaseSaved = true;
+      _notificationSourceId = null;
+    });
     _showMessage('Compra salva e incluída na sincronização.');
+  }
+
+  Future<void> _openNotificationImports() async {
+    final importedIds = widget.controller.purchaseRecords
+        .map((record) => record.entry.sourceReference)
+        .whereType<String>()
+        .toSet();
+
+    final candidate = await Navigator.of(context)
+        .push<NotificationPurchaseCandidate>(
+          MaterialPageRoute(
+            builder: (context) => NotificationImportPage(
+              ignoredCandidateIds: importedIds,
+              service: _notificationImportService,
+            ),
+          ),
+        );
+    if (candidate == null || !mounted) {
+      return;
+    }
+
+    final candidateDate = DateTime(
+      candidate.occurredAt.year,
+      candidate.occurredAt.month,
+      candidate.occurredAt.day,
+    );
+    final safeDate = candidateDate.isBefore(
+      FinancialMonthController.firstMonth,
+    )
+        ? FinancialMonthController.firstMonth
+        : candidateDate;
+
+    _descriptionController.text = candidate.description;
+    _amountController.text = _inputCurrency.format(
+      candidate.amountInCents / 100,
+    );
+    _installmentsController.text = '1';
+
+    setState(() {
+      _purchaseDate = safeDate;
+      _installments = 1;
+      _notificationSourceId = candidate.id;
+      _showSimulation = false;
+      _purchaseSaved = false;
+    });
+    _showMessage('Sugestão preenchida. Revise o cartão e confirme a compra.');
   }
 
   Future<void> _selectDate() async {
@@ -217,7 +281,16 @@ class _PurchasePageState extends State<PurchasePage> {
         final installmentAmounts = _installmentAmounts();
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Simular compra')),
+          appBar: AppBar(
+            title: const Text('Simular compra'),
+            actions: [
+              IconButton(
+                onPressed: _openNotificationImports,
+                tooltip: 'Importar da Carteira do Google',
+                icon: const Icon(Icons.notifications_active_outlined),
+              ),
+            ],
+          ),
           body: ListView(
             padding: const EdgeInsets.all(20),
             children: [

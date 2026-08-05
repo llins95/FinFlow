@@ -23,6 +23,7 @@ class FinancialEntry {
   final int? dueDay;
   final DateTime? purchaseDate;
   final int? installments;
+  final String? sourceReference;
 
   const FinancialEntry({
     required this.id,
@@ -41,6 +42,7 @@ class FinancialEntry {
     this.dueDay,
     this.purchaseDate,
     this.installments,
+    this.sourceReference,
   });
 
   bool get isDebt =>
@@ -62,6 +64,7 @@ class FinancialEntry {
     int? dueDay,
     DateTime? purchaseDate,
     int? installments,
+    String? sourceReference,
   }) {
     return FinancialEntry(
       id: id,
@@ -80,6 +83,7 @@ class FinancialEntry {
       dueDay: dueDay ?? this.dueDay,
       purchaseDate: purchaseDate ?? this.purchaseDate,
       installments: installments ?? this.installments,
+      sourceReference: sourceReference ?? this.sourceReference,
     );
   }
 
@@ -101,6 +105,7 @@ class FinancialEntry {
       'dueDay': dueDay,
       'purchaseDate': purchaseDate?.toIso8601String(),
       'installments': installments,
+      'sourceReference': sourceReference,
     };
   }
 
@@ -128,6 +133,7 @@ class FinancialEntry {
       dueDay: (map['dueDay'] as num?)?.toInt(),
       purchaseDate: _parseDate(map['purchaseDate']),
       installments: (map['installments'] as num?)?.toInt(),
+      sourceReference: map['sourceReference'] as String?,
     );
   }
 

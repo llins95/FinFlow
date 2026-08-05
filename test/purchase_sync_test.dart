@@ -110,6 +110,33 @@ void main() {
       expect(controller.purchaseRecords.single.month.storageKey, '2026-09');
     });
 
+    test('não duplica uma notificação já importada', () async {
+      const sourceReference = 'wallet-notification-demo';
+
+      await controller.addPurchase(
+        description: 'Compra detectada',
+        amountInCents: 2590,
+        installments: 1,
+        purchaseDate: DateTime(2026, 8, 5),
+        cardInvoice: controller.activeCardInvoices.single,
+        sourceReference: sourceReference,
+      );
+      await controller.addPurchase(
+        description: 'Compra detectada novamente',
+        amountInCents: 2590,
+        installments: 1,
+        purchaseDate: DateTime(2026, 8, 5),
+        cardInvoice: controller.activeCardInvoices.single,
+        sourceReference: sourceReference,
+      );
+
+      expect(controller.purchaseRecords, hasLength(1));
+      expect(
+        controller.purchaseRecords.single.entry.sourceReference,
+        sourceReference,
+      );
+    });
+
     test('importa uma compra antiga do Hive somente uma vez', () async {
       final legacy = Purchase(
         id: 'legacy-demo',

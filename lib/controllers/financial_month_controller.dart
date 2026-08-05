@@ -257,7 +257,15 @@ class FinancialMonthController extends ChangeNotifier {
     required int installments,
     required DateTime purchaseDate,
     required FinancialEntry cardInvoice,
+    String? sourceReference,
   }) async {
+    if (sourceReference != null &&
+        purchaseRecords.any(
+          (record) => record.entry.sourceReference == sourceReference,
+        )) {
+      return;
+    }
+
     final targetMonth = await _loadOrCreateMonth(purchaseDate);
     final purchase = _buildPurchaseEntry(
       id: 'purchase-${const Uuid().v4()}',
@@ -266,6 +274,7 @@ class FinancialMonthController extends ChangeNotifier {
       installments: installments,
       purchaseDate: purchaseDate,
       cardInvoice: cardInvoice,
+      sourceReference: sourceReference,
     );
 
     await _saveMonth(targetMonth.addEntry(purchase));
@@ -291,6 +300,7 @@ class FinancialMonthController extends ChangeNotifier {
       installments: installments,
       purchaseDate: purchaseDate,
       cardInvoice: cardInvoice,
+      sourceReference: record.entry.sourceReference,
     );
     final targetMonth = await _loadOrCreateMonth(purchaseDate);
 
@@ -373,6 +383,7 @@ class FinancialMonthController extends ChangeNotifier {
     required int installments,
     required DateTime purchaseDate,
     required FinancialEntry cardInvoice,
+    String? sourceReference,
   }) {
     final card = creditCardFromInvoice(cardInvoice);
 
@@ -392,6 +403,7 @@ class FinancialMonthController extends ChangeNotifier {
         purchaseDate.day,
       ),
       installments: installments.clamp(1, 99),
+      sourceReference: sourceReference,
     );
   }
 

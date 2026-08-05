@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../controllers/financial_month_controller.dart';
 import '../../../services/sync_status_controller.dart';
+import '../../purchase/pages/notification_import_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({
@@ -50,6 +51,31 @@ class SettingsPage extends StatelessWidget {
                       onSync: () => unawaited(controller.syncNow()),
                     ),
                   ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.notifications_active_outlined),
+                  title: const Text('Compras pela Carteira do Google'),
+                  subtitle: const Text(
+                    'No Android, detecta compras para você revisar antes '
+                    'de salvar.',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    final importedIds = controller.purchaseRecords
+                        .map((record) => record.entry.sourceReference)
+                        .whereType<String>()
+                        .toSet();
+                    unawaited(
+                      Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (context) => NotificationImportPage(
+                            ignoredCandidateIds: importedIds,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
                 const Divider(height: 1),
                 const ListTile(
                   leading: Icon(Icons.security_outlined),
