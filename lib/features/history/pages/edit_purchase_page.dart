@@ -101,6 +101,10 @@ class _EditPurchasePageState extends State<EditPurchasePage> {
 
     await PurchaseRepository.update(updatedPurchase);
 
+    if (!mounted) {
+      return;
+    }
+
     Navigator.pop(context, true);
   }
 
