@@ -17,6 +17,7 @@ class FinancialMonthController extends ChangeNotifier {
 
   final FinancialMonthStore _store;
   late final StreamSubscription<FinancialMonth> _remoteSubscription;
+  final Map<String, FinancialMonth> _loadedMonths = {};
 
   FinancialMonth? _currentMonth;
   bool _isLoading = false;
@@ -33,6 +34,12 @@ class FinancialMonthController extends ChangeNotifier {
   bool get isInitialized => _currentMonth != null;
   bool get isLoading => _isLoading;
   SyncStatusController? get syncStatus => _store.syncStatus;
+
+  List<FinancialMonth> get availableMonths {
+    final months = _loadedMonths.values.toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    return List.unmodifiable(months);
+  }
 
   bool get canGoToPreviousMonth =>
       isInitialized && currentMonth.date.isAfter(firstMonth);
@@ -54,6 +61,7 @@ class FinancialMonthController extends ChangeNotifier {
         initialMonth = buildInitialFinancialMonth();
         await _store.save(initialMonth);
       }
+      _rememberMonth(initialMonth);
 
       final requestedDate = now ?? DateTime.now();
       final requestedMonth = DateTime(
@@ -75,6 +83,7 @@ class FinancialMonthController extends ChangeNotifier {
         if (storedNextMonth == null) {
           await _store.save(month);
         }
+        _rememberMonth(month);
       }
 
       _currentMonth = month;
@@ -103,6 +112,7 @@ class FinancialMonthController extends ChangeNotifier {
     }
 
     _currentMonth = previousMonth;
+    _rememberMonth(previousMonth);
     notifyListeners();
     return true;
   }
@@ -119,11 +129,29 @@ class FinancialMonthController extends ChangeNotifier {
 
     await _store.save(nextMonth);
     _currentMonth = nextMonth;
+    _rememberMonth(nextMonth);
     notifyListeners();
+  }
+
+  Future<bool> goToMonth(int year, int month) async {
+    if (_isLoading) {
+      return false;
+    }
+
+    final selectedMonth = await _store.load(year, month);
+    if (selectedMonth == null) {
+      return false;
+    }
+
+    _currentMonth = selectedMonth;
+    _rememberMonth(selectedMonth);
+    notifyListeners();
+    return true;
   }
 
   Future<void> updateEntry(FinancialEntry entry) async {
     _currentMonth = currentMonth.replaceEntry(entry);
+    _rememberMonth(currentMonth);
     notifyListeners();
     await _store.save(currentMonth);
   }
@@ -143,12 +171,14 @@ class FinancialMonthController extends ChangeNotifier {
     );
 
     _currentMonth = currentMonth.addEntry(entry);
+    _rememberMonth(currentMonth);
     notifyListeners();
     await _store.save(currentMonth);
   }
 
   Future<void> removeEntry(String entryId) async {
     _currentMonth = currentMonth.removeEntry(entryId);
+    _rememberMonth(currentMonth);
     notifyListeners();
     await _store.save(currentMonth);
   }
@@ -156,17 +186,29 @@ class FinancialMonthController extends ChangeNotifier {
   Future<void> syncNow() => _store.syncNow();
 
   void _handleRemoteMonth(FinancialMonth month) {
-    if (_isDisposed || !isInitialized) {
+    if (_isDisposed) {
       return;
     }
 
-    if (month.storageKey != currentMonth.storageKey ||
-        month.clientUpdatedAt.isBefore(currentMonth.clientUpdatedAt)) {
+    final loadedMonth = _loadedMonths[month.storageKey];
+    if (loadedMonth != null &&
+        month.clientUpdatedAt.isBefore(loadedMonth.clientUpdatedAt)) {
       return;
     }
 
-    _currentMonth = month;
+    _rememberMonth(month);
+
+    if (isInitialized &&
+        month.storageKey == currentMonth.storageKey &&
+        !month.clientUpdatedAt.isBefore(currentMonth.clientUpdatedAt)) {
+      _currentMonth = month;
+    }
+
     notifyListeners();
+  }
+
+  void _rememberMonth(FinancialMonth month) {
+    _loadedMonths[month.storageKey] = month;
   }
 
   void _setLoading(bool value) {
