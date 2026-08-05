@@ -16,7 +16,7 @@ abstract class FinancialMonthStore {
   Future<void> dispose() async {}
 }
 
-class HiveFinancialMonthStore implements FinancialMonthStore {
+class HiveFinancialMonthStore extends FinancialMonthStore {
   static const boxName = 'financial_months';
 
   Box<dynamic> get _box => Hive.box<dynamic>(boxName);
@@ -43,7 +43,7 @@ class HiveFinancialMonthStore implements FinancialMonthStore {
   }
 }
 
-class MemoryFinancialMonthStore implements FinancialMonthStore {
+class MemoryFinancialMonthStore extends FinancialMonthStore {
   final Map<String, Map<String, Object?>> _months = {};
 
   @override
