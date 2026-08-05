@@ -190,7 +190,7 @@ class _MonthSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final month = controller.currentMonth;
     final formatter = DateFormat('MMMM yyyy', 'pt_BR');
-    final label = toBeginningOfSentenceCase(formatter.format(month.date)) ?? '';
+    final label = toBeginningOfSentenceCase(formatter.format(month.date));
 
     return Card(
       margin: EdgeInsets.zero,
