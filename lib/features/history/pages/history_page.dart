@@ -3,9 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../controllers/financial_month_controller.dart';
 import '../../../models/financial_month.dart';
-import '../../../models/purchase.dart';
-import '../../../shared/mock_data.dart';
-import '../../../shared/purchase_repository.dart';
+import '../../../models/purchase_record.dart';
 import 'edit_purchase_page.dart';
 
 class HistoryPage extends StatelessWidget {
@@ -38,7 +36,7 @@ class HistoryPage extends StatelessWidget {
               controller: controller,
               onOpenMonth: onOpenMonth,
             ),
-            const _PurchaseHistoryPage(),
+            _PurchaseHistoryPage(controller: controller),
           ],
         ),
       ),
@@ -294,14 +292,11 @@ class _EmptyFinancialHistory extends StatelessWidget {
   }
 }
 
-class _PurchaseHistoryPage extends StatefulWidget {
-  const _PurchaseHistoryPage();
+class _PurchaseHistoryPage extends StatelessWidget {
+  _PurchaseHistoryPage({required this.controller});
 
-  @override
-  State<_PurchaseHistoryPage> createState() => _PurchaseHistoryPageState();
-}
+  final FinancialMonthController controller;
 
-class _PurchaseHistoryPageState extends State<_PurchaseHistoryPage> {
   final NumberFormat currencyFormatter = NumberFormat.currency(
     locale: 'pt_BR',
     symbol: 'R\$',
@@ -310,33 +305,37 @@ class _PurchaseHistoryPageState extends State<_PurchaseHistoryPage> {
 
   final DateFormat dateFormatter = DateFormat('dd/MM/yyyy', 'pt_BR');
 
-  Future<void> openEditPurchasePage(Purchase purchase) async {
+  Future<void> openEditPurchasePage(
+    BuildContext context,
+    PurchaseRecord record,
+  ) async {
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (context) {
-          return EditPurchasePage(purchase: purchase);
+          return EditPurchasePage(
+            controller: controller,
+            record: record,
+          );
         },
       ),
     );
 
-    if (result != true || !mounted) {
+    if (result != true || !context.mounted) {
       return;
     }
-
-    setState(() {});
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Compra atualizada com sucesso!')),
     );
   }
 
-  Future<void> confirmDeletePurchase(Purchase purchase) async {
-    final matchingCards = mockCards.where((card) => card.id == purchase.cardId);
-
-    final cardName = matchingCards.isEmpty
-        ? 'Cartão não encontrado'
-        : matchingCards.first.name;
+  Future<void> confirmDeletePurchase(
+    BuildContext context,
+    PurchaseRecord record,
+  ) async {
+    final purchase = record.entry;
+    final cardName = purchase.relatedCardName ?? 'Cartão não encontrado';
 
     final shouldDelete = await showDialog<bool>(
       context: context,
@@ -350,7 +349,7 @@ class _PurchaseHistoryPageState extends State<_PurchaseHistoryPage> {
               const Text('Esta ação removerá a compra do histórico.'),
               const SizedBox(height: 20),
               Text(
-                purchase.description,
+                purchase.name,
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -358,7 +357,7 @@ class _PurchaseHistoryPageState extends State<_PurchaseHistoryPage> {
               ),
               const SizedBox(height: 12),
               Text(
-                currencyFormatter.format(purchase.amount),
+                currencyFormatter.format(purchase.amountInCents / 100),
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -367,10 +366,10 @@ class _PurchaseHistoryPageState extends State<_PurchaseHistoryPage> {
               const SizedBox(height: 8),
               Text('Cartão: $cardName'),
               const SizedBox(height: 4),
-              Text('Data: ${dateFormatter.format(purchase.purchaseDate)}'),
+              Text('Data: ${dateFormatter.format(record.purchaseDate)}'),
               const SizedBox(height: 4),
               Text(
-                purchase.installments == 1
+                (purchase.installments ?? 1) == 1
                     ? 'Pagamento à vista'
                     : '${purchase.installments} parcelas',
               ),
@@ -403,84 +402,82 @@ class _PurchaseHistoryPageState extends State<_PurchaseHistoryPage> {
       return;
     }
 
-    await PurchaseRepository.remove(purchase.id);
+    await controller.removePurchase(record);
 
-    if (!mounted) {
+    if (!context.mounted) {
       return;
     }
 
-    setState(() {});
-
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Compra "${purchase.description}" excluída.')),
+      SnackBar(content: Text('Compra "${purchase.name}" excluída.')),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final purchases = PurchaseRepository.purchases;
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final purchases = controller.purchaseRecords;
+        if (purchases.isEmpty) {
+          return const _EmptyPurchaseHistory();
+        }
 
-    if (purchases.isEmpty) {
-      return const _EmptyPurchaseHistory();
-    }
+        return ListView.builder(
+          padding: const EdgeInsets.all(20),
+          itemCount: purchases.length,
+          itemBuilder: (context, index) {
+            final record = purchases[index];
+            final purchase = record.entry;
+            final cardName =
+                purchase.relatedCardName ?? 'Cartão não encontrado';
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: purchases.length,
-      itemBuilder: (context, index) {
-        final purchase = purchases[index];
-
-        final matchingCards = mockCards.where(
-          (card) => card.id == purchase.cardId,
-        );
-
-        final card = matchingCards.isEmpty ? null : matchingCards.first;
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 18,
-              vertical: 10,
-            ),
-            leading: CircleAvatar(
-              backgroundColor: card == null ? Colors.grey : Color(card.color),
-              child: const Icon(
-                Icons.shopping_bag_outlined,
-                color: Colors.white,
-              ),
-            ),
-            title: Text(
-              purchase.description,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Text(
-              '${card?.name ?? 'Cartão não encontrado'}\n'
-              '${dateFormatter.format(purchase.purchaseDate)}',
-            ),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  currencyFormatter.format(purchase.amount),
+            return Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 10,
+                ),
+                leading: CircleAvatar(
+                  backgroundColor: Color(
+                    purchase.cardColor ?? 0xFF455A64,
+                  ),
+                  child: const Icon(
+                    Icons.shopping_bag_outlined,
+                    color: Colors.white,
+                  ),
+                ),
+                title: Text(
+                  purchase.name,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  purchase.installments == 1
-                      ? 'À vista'
-                      : '${purchase.installments}x',
+                subtitle: Text(
+                  '$cardName\n${dateFormatter.format(record.purchaseDate)}',
                 ),
-              ],
-            ),
-            onTap: () {
-              openEditPurchasePage(purchase);
-            },
-            onLongPress: () {
-              confirmDeletePurchase(purchase);
-            },
-          ),
+                trailing: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      currencyFormatter.format(
+                        purchase.amountInCents / 100,
+                      ),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      (purchase.installments ?? 1) == 1
+                          ? 'À vista'
+                          : '${purchase.installments}x',
+                    ),
+                  ],
+                ),
+                onTap: () => openEditPurchasePage(context, record),
+                onLongPress: () => confirmDeletePurchase(context, record),
+              ),
+            );
+          },
         );
       },
     );

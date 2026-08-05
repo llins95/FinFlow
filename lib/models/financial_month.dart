@@ -22,6 +22,9 @@ class FinancialMonth {
     return entries.where((entry) => entry.type == type).toList();
   }
 
+  List<FinancialEntry> get purchases =>
+      entriesOfType(FinancialEntryType.purchase);
+
   int get totalDebtInCents => entries
       .where((entry) => entry.isDebt)
       .fold(0, (total, entry) => total + entry.amountInCents);

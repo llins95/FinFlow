@@ -5,9 +5,12 @@ import 'package:uuid/uuid.dart';
 
 import '../models/financial_entry.dart';
 import '../models/financial_month.dart';
+import '../models/purchase.dart';
+import '../models/purchase_record.dart';
 import '../services/sync_status_controller.dart';
 import '../shared/financial_month_repository.dart';
 import '../shared/initial_financial_data.dart';
+import '../utils/card_mapper.dart';
 
 class FinancialMonthController extends ChangeNotifier {
   FinancialMonthController(this._store) {
@@ -40,6 +43,44 @@ class FinancialMonthController extends ChangeNotifier {
     final months = _loadedMonths.values.toList()
       ..sort((a, b) => b.date.compareTo(a.date));
     return List.unmodifiable(months);
+  }
+
+  List<PurchaseRecord> get purchaseRecords {
+    final records = <PurchaseRecord>[
+      for (final month in _loadedMonths.values)
+        for (final entry in month.purchases)
+          PurchaseRecord(month: month, entry: entry),
+    ]..sort((a, b) => b.purchaseDate.compareTo(a.purchaseDate));
+
+    return List.unmodifiable(records);
+  }
+
+  List<FinancialEntry> get activeCardInvoices {
+    final cards = currentMonth
+        .entriesOfType(FinancialEntryType.cardInvoice)
+        .where((entry) => entry.isActive)
+        .toList()
+      ..sort(
+        (a, b) => (a.closingDay ?? 32).compareTo(b.closingDay ?? 32),
+      );
+    return List.unmodifiable(cards);
+  }
+
+  List<FinancialEntry> get purchaseCardOptions {
+    final cardsById = <String, FinancialEntry>{};
+
+    for (final month in availableMonths) {
+      for (final entry in month.entriesOfType(
+        FinancialEntryType.cardInvoice,
+      )) {
+        final cardId = entry.relatedCardId ?? entry.id;
+        cardsById.putIfAbsent(cardId, () => entry);
+      }
+    }
+
+    final cards = cardsById.values.toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    return List.unmodifiable(cards);
   }
 
   bool get canGoToPreviousMonth =>
@@ -210,6 +251,112 @@ class FinancialMonthController extends ChangeNotifier {
     await _store.save(currentMonth);
   }
 
+  Future<void> addPurchase({
+    required String description,
+    required int amountInCents,
+    required int installments,
+    required DateTime purchaseDate,
+    required FinancialEntry cardInvoice,
+  }) async {
+    final targetMonth = await _loadOrCreateMonth(purchaseDate);
+    final purchase = _buildPurchaseEntry(
+      id: 'purchase-${const Uuid().v4()}',
+      description: description,
+      amountInCents: amountInCents,
+      installments: installments,
+      purchaseDate: purchaseDate,
+      cardInvoice: cardInvoice,
+    );
+
+    await _saveMonth(targetMonth.addEntry(purchase));
+  }
+
+  Future<void> updatePurchase({
+    required PurchaseRecord record,
+    required String description,
+    required int amountInCents,
+    required int installments,
+    required DateTime purchaseDate,
+    required FinancialEntry cardInvoice,
+  }) async {
+    final sourceMonth = await _loadMonth(record.month.year, record.month.month);
+    if (sourceMonth == null) {
+      throw StateError('O mês original da compra não foi encontrado.');
+    }
+
+    final updatedPurchase = _buildPurchaseEntry(
+      id: record.entry.id,
+      description: description,
+      amountInCents: amountInCents,
+      installments: installments,
+      purchaseDate: purchaseDate,
+      cardInvoice: cardInvoice,
+    );
+    final targetMonth = await _loadOrCreateMonth(purchaseDate);
+
+    if (sourceMonth.storageKey == targetMonth.storageKey) {
+      await _saveMonth(sourceMonth.replaceEntry(updatedPurchase));
+      return;
+    }
+
+    await _saveMonth(sourceMonth.removeEntry(record.entry.id));
+    await _saveMonth(targetMonth.addEntry(updatedPurchase));
+  }
+
+  Future<void> removePurchase(PurchaseRecord record) async {
+    final month = await _loadMonth(record.month.year, record.month.month);
+    if (month == null) {
+      return;
+    }
+    await _saveMonth(month.removeEntry(record.entry.id));
+  }
+
+  Future<int> importLegacyPurchases(Iterable<Purchase> purchases) async {
+    var processedCount = 0;
+
+    for (final legacyPurchase in purchases) {
+      final purchaseDate = DateTime(
+        legacyPurchase.purchaseDate.year,
+        legacyPurchase.purchaseDate.month,
+        legacyPurchase.purchaseDate.day,
+      );
+      if (purchaseDate.isBefore(firstMonth)) {
+        processedCount++;
+        continue;
+      }
+
+      final targetMonth = await _loadOrCreateMonth(purchaseDate);
+      final entryId = legacyPurchase.id.startsWith('purchase-')
+          ? legacyPurchase.id
+          : 'purchase-${legacyPurchase.id}';
+      if (targetMonth.entries.any((entry) => entry.id == entryId)) {
+        processedCount++;
+        continue;
+      }
+
+      final cardInvoice = _findCardInvoice(
+        legacyPurchase.cardId,
+        preferredMonth: targetMonth,
+      );
+      if (cardInvoice == null) {
+        continue;
+      }
+
+      final purchase = _buildPurchaseEntry(
+        id: entryId,
+        description: legacyPurchase.description,
+        amountInCents: (legacyPurchase.amount * 100).round(),
+        installments: legacyPurchase.installments,
+        purchaseDate: purchaseDate,
+        cardInvoice: cardInvoice,
+      );
+      await _saveMonth(targetMonth.addEntry(purchase));
+      processedCount++;
+    }
+
+    return processedCount;
+  }
+
   Future<void> removeEntry(String entryId) async {
     _currentMonth = currentMonth.removeEntry(entryId);
     _rememberMonth(currentMonth);
@@ -218,6 +365,111 @@ class FinancialMonthController extends ChangeNotifier {
   }
 
   Future<void> syncNow() => _store.syncNow();
+
+  FinancialEntry _buildPurchaseEntry({
+    required String id,
+    required String description,
+    required int amountInCents,
+    required int installments,
+    required DateTime purchaseDate,
+    required FinancialEntry cardInvoice,
+  }) {
+    final card = creditCardFromInvoice(cardInvoice);
+
+    return FinancialEntry(
+      id: id,
+      name: description.trim(),
+      amountInCents: amountInCents,
+      type: FinancialEntryType.purchase,
+      relatedCardId: card.id,
+      relatedCardName: card.name,
+      cardColor: card.color,
+      closingDay: card.closingDay,
+      dueDay: card.dueDay,
+      purchaseDate: DateTime(
+        purchaseDate.year,
+        purchaseDate.month,
+        purchaseDate.day,
+      ),
+      installments: installments.clamp(1, 99),
+    );
+  }
+
+  FinancialEntry? _findCardInvoice(
+    String cardId, {
+    FinancialMonth? preferredMonth,
+  }) {
+    final preferredCards = preferredMonth?.entriesOfType(
+      FinancialEntryType.cardInvoice,
+    );
+    if (preferredCards != null) {
+      for (final card in preferredCards) {
+        if ((card.relatedCardId ?? card.id) == cardId) {
+          return card;
+        }
+      }
+    }
+
+    for (final card in purchaseCardOptions) {
+      if ((card.relatedCardId ?? card.id) == cardId) {
+        return card;
+      }
+    }
+    return null;
+  }
+
+  Future<FinancialMonth?> _loadMonth(int year, int month) async {
+    final key = '$year-${month.toString().padLeft(2, '0')}';
+    final remembered = _loadedMonths[key];
+    if (remembered != null) {
+      return remembered;
+    }
+
+    final stored = await _store.load(year, month);
+    if (stored != null) {
+      _rememberMonth(stored);
+    }
+    return stored;
+  }
+
+  Future<FinancialMonth> _loadOrCreateMonth(DateTime date) async {
+    final targetDate = DateTime(date.year, date.month);
+    if (targetDate.isBefore(firstMonth)) {
+      throw ArgumentError('O FinFlow começa em agosto de 2026.');
+    }
+
+    var month =
+        await _loadMonth(firstMonth.year, firstMonth.month) ??
+        buildInitialFinancialMonth();
+    _rememberMonth(month);
+
+    while (month.date.isBefore(targetDate)) {
+      final nextDate = DateTime(month.year, month.month + 1);
+      final storedNextMonth = await _loadMonth(
+        nextDate.year,
+        nextDate.month,
+      );
+      if (storedNextMonth != null) {
+        month = storedNextMonth;
+        continue;
+      }
+
+      month = month.createNextMonth();
+      await _store.save(month);
+      _rememberMonth(month);
+    }
+
+    return month;
+  }
+
+  Future<void> _saveMonth(FinancialMonth month) async {
+    _rememberMonth(month);
+    if (isInitialized && currentMonth.storageKey == month.storageKey) {
+      _currentMonth = month;
+    }
+    notifyListeners();
+    await _store.save(month);
+  }
 
   void _handleRemoteMonth(FinancialMonth month) {
     if (_isDisposed) {

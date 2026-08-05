@@ -68,7 +68,10 @@ class CreditCard {
       }
     }
 
-    return DateTime(year, month, dueDay);
+    final lastDay = DateTime(year, month + 1, 0).day;
+    final safeDueDay = dueDay.clamp(1, lastDay);
+
+    return DateTime(year, month, safeDueDay);
   }
 
   int daysToPay(DateTime purchaseDate) {

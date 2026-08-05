@@ -132,7 +132,7 @@ class _NavigationPageState extends State<NavigationPage> {
     return switch (index) {
       0 => HomePage(controller: widget.controller),
       1 => CardsPage(controller: widget.controller),
-      2 => const PurchasePage(),
+      2 => PurchasePage(controller: widget.controller),
       3 => HistoryPage(
           controller: widget.controller,
           onOpenMonth: (month) async {
@@ -145,7 +145,7 @@ class _NavigationPageState extends State<NavigationPage> {
             }
           },
         ),
-      4 => const CalendarPage(),
+      4 => CalendarPage(controller: widget.controller),
       5 => SettingsPage(
           controller: widget.controller,
           supabaseClient: widget.supabaseClient,

@@ -8,6 +8,8 @@ Windows.
 - mês inicial: agosto de 2026;
 - atualização rápida de faturas, despesas e receitas;
 - cadastro e edição de cartões, limites, datas e ativação mensal;
+- compras à vista ou parceladas usando os cartões cadastrados;
+- calendário de parcelas com rateio exato em centavos;
 - resumo com total a pagar, total disponível e sobra/falta;
 - valores monetários armazenados em centavos inteiros;
 - persistência local com Hive;
@@ -15,6 +17,7 @@ Windows.
 - sincronização Android–Windows com Supabase Realtime;
 - fila offline com reenvio automático;
 - histórico e criação do próximo mês com itens recorrentes;
+- migração automática das compras antigas salvas no Hive;
 - dados protegidos por RLS e isolados por usuário.
 
 ## Configurar o Supabase
@@ -44,6 +47,9 @@ flutter devices
 As migrações versionadas estão em `supabase/migrations`. Elas criam a tabela
 `financial_months`, as políticas RLS, a função de gravação com controle de
 versão e a publicação Realtime.
+
+As compras fazem parte do JSON do mês financeiro. Por isso, usam a mesma fila
+offline e a mesma sincronização sem exigir uma segunda tabela.
 
 ## Validar
 

@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../controllers/financial_month_controller.dart';
 import '../features/auth/pages/auth_page.dart';
+import '../models/purchase.dart';
 import '../services/supabase_financial_month_store.dart';
 import '../shared/financial_month_repository.dart';
 import 'app_theme.dart';
@@ -16,10 +17,14 @@ class FinFlowApp extends StatefulWidget {
     super.key,
     this.financialMonthController,
     this.supabaseClient,
+    this.legacyPurchases = const [],
+    this.onLegacyPurchasesImported,
   });
 
   final FinancialMonthController? financialMonthController;
   final SupabaseClient? supabaseClient;
+  final List<Purchase> legacyPurchases;
+  final Future<void> Function()? onLegacyPurchasesImported;
 
   @override
   State<FinFlowApp> createState() => _FinFlowAppState();
@@ -34,6 +39,7 @@ class _FinFlowAppState extends State<FinFlowApp> {
   String? _activeUserId;
   String? _startupError;
   int _sessionGeneration = 0;
+  bool _legacyImportCompleted = false;
 
   bool get _usesInjectedController =>
       widget.financialMonthController != null;
@@ -63,6 +69,7 @@ class _FinFlowAppState extends State<FinFlowApp> {
   Future<void> _initializeInjectedController() async {
     try {
       await _controller!.initialize();
+      await _importLegacyPurchases(_controller!);
     } catch (error) {
       _startupError = error.toString();
     }
@@ -112,6 +119,7 @@ class _FinFlowAppState extends State<FinFlowApp> {
 
     try {
       await controller.initialize();
+      await _importLegacyPurchases(controller);
 
       if (!mounted || generation != _sessionGeneration) {
         controller.dispose();
@@ -134,6 +142,24 @@ class _FinFlowAppState extends State<FinFlowApp> {
         _isStarting = false;
       });
     }
+  }
+
+  Future<void> _importLegacyPurchases(
+    FinancialMonthController controller,
+  ) async {
+    if (_legacyImportCompleted || widget.legacyPurchases.isEmpty) {
+      return;
+    }
+
+    final processed = await controller.importLegacyPurchases(
+      widget.legacyPurchases,
+    );
+    if (processed != widget.legacyPurchases.length) {
+      return;
+    }
+
+    await widget.onLegacyPurchasesImported?.call();
+    _legacyImportCompleted = true;
   }
 
   @override

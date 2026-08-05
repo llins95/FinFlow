@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../controllers/financial_month_controller.dart';
 import '../../../models/credit_card.dart';
 import '../../../models/financial_entry.dart';
-import '../../../shared/mock_data.dart';
+import '../../../utils/card_mapper.dart';
 import '../../dashboard/widgets/credit_card_tile.dart';
 import '../../finance/widgets/financial_entry_dialog.dart';
 import '../widgets/card_editor_dialog.dart';
@@ -57,7 +57,7 @@ class CardsPage extends StatelessWidget {
                     }
 
                     final invoice = invoices[index - 1];
-                    final card = _cardFor(invoice);
+                    final card = creditCardFromInvoice(invoice);
 
                     return CreditCardTile(
                       card: card,
@@ -70,34 +70,6 @@ class CardsPage extends StatelessWidget {
         );
       },
     );
-  }
-
-  CreditCard _cardFor(FinancialEntry invoice) {
-    final fallback = _legacyCard(invoice.relatedCardId);
-
-    return CreditCard(
-      id: invoice.relatedCardId ?? invoice.id,
-      name: invoice.name,
-      bank: invoice.cardBank ?? fallback?.bank ?? invoice.name,
-      brand: invoice.cardBrand ?? fallback?.brand ?? 'Não informada',
-      limit:
-          (invoice.cardLimitInCents ??
-              ((fallback?.limit ?? 0) * 100).round()) /
-          100,
-      closingDay: invoice.closingDay ?? fallback?.closingDay ?? 1,
-      dueDay: invoice.dueDay ?? fallback?.dueDay ?? 1,
-      color: invoice.cardColor ?? fallback?.color ?? 0xFF455A64,
-      isActive: invoice.isActive,
-    );
-  }
-
-  CreditCard? _legacyCard(String? cardId) {
-    for (final card in mockCards) {
-      if (card.id == cardId) {
-        return card;
-      }
-    }
-    return null;
   }
 
   Future<void> _addCard(BuildContext context) async {

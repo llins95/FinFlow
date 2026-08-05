@@ -7,6 +7,7 @@ import 'models/purchase.dart';
 import 'models/purchase_adapter.dart';
 import 'services/supabase_financial_month_store.dart';
 import 'shared/financial_month_repository.dart';
+import 'shared/purchase_repository.dart';
 import 'shared/supabase_config.dart';
 
 Future<void> main() async {
@@ -31,5 +32,15 @@ Future<void> main() async {
     supabaseClient = Supabase.instance.client;
   }
 
-  runApp(FinFlowApp(supabaseClient: supabaseClient));
+  final legacyPurchases = List<Purchase>.unmodifiable(
+    PurchaseRepository.purchases,
+  );
+
+  runApp(
+    FinFlowApp(
+      supabaseClient: supabaseClient,
+      legacyPurchases: legacyPurchases,
+      onLegacyPurchasesImported: PurchaseRepository.clear,
+    ),
+  );
 }
