@@ -10,9 +10,8 @@ import 'sync_status_controller.dart';
 class SupabaseFinancialMonthStore implements FinancialMonthStore {
   SupabaseFinancialMonthStore({
     required SupabaseClient client,
-    required FinancialMonthStore localStore,
+    required this.localStore,
   }) : _client = client,
-       _localStore = localStore,
        _userId =
            client.auth.currentUser?.id ??
            (throw StateError('É necessário entrar antes de sincronizar.')) {
@@ -55,7 +54,7 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
   static const String queueBoxName = 'financial_month_sync_queue';
 
   final SupabaseClient _client;
-  final FinancialMonthStore _localStore;
+  final FinancialMonthStore localStore;
   final String _userId;
   final SyncStatusController _status = SyncStatusController();
   final StreamController<FinancialMonth> _changes =
@@ -76,7 +75,7 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
 
   @override
   Future<FinancialMonth?> load(int year, int month) async {
-    final localMonth = await _localStore.load(year, month);
+    final localMonth = await localStore.load(year, month);
 
     try {
       final remoteMonth = await _loadRemoteMonth(year, month);
@@ -92,7 +91,7 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
           !remoteMonth.clientUpdatedAt.isBefore(
             localMonth.clientUpdatedAt,
           )) {
-        await _localStore.save(remoteMonth);
+        await localStore.save(remoteMonth);
         return remoteMonth;
       }
 
@@ -111,7 +110,7 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
 
   @override
   Future<void> save(FinancialMonth month) async {
-    await _localStore.save(month);
+    await localStore.save(month);
     await _queueMonth(month);
   }
 
@@ -197,7 +196,7 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
           );
         }
 
-        await _localStore.save(acceptedMonth);
+        await localStore.save(acceptedMonth);
         await _queue.delete(key);
         if (!_changes.isClosed) {
           _changes.add(acceptedMonth);
@@ -259,7 +258,7 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
       await _queue.delete(remoteMonth.storageKey);
     }
 
-    final localMonth = await _localStore.load(
+    final localMonth = await localStore.load(
       remoteMonth.year,
       remoteMonth.month,
     );
@@ -271,7 +270,7 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
       return;
     }
 
-    await _localStore.save(remoteMonth);
+    await localStore.save(remoteMonth);
     if (!_changes.isClosed) {
       _changes.add(remoteMonth);
     }
