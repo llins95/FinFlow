@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   validate:
-    name: Analyze and test
+    name: Analyze, test, and build APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -42,5 +42,24 @@ jobs:
       - name: Run tests
         run: flutter test
 
-      - name: Build Android debug APK
-        run: flutter build apk --debug
+      - name: Build configured Android debug APK
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://jbfwcxgmdpoqnulnajed.supabase.co' }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_bEOdvlZurZkI_WqRhkDk0Q_TV0n0UT-' }}
+        run: |
+          flutter build apk --debug \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY"
+
+      - name: Create APK checksum
+        run: sha256sum build/app/outputs/flutter-apk/app-debug.apk > build/app/outputs/flutter-apk/app-debug.apk.sha256
+
+      - name: Publish test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinFlow-S23-debug-${{ github.sha }}
+          path: |
+            build/app/outputs/flutter-apk/app-debug.apk
+            build/app/outputs/flutter-apk/app-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 30
