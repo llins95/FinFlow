@@ -9,11 +9,13 @@ class CreditCardTile extends StatelessWidget {
     required this.card,
     this.invoiceInCents,
     this.onEditInvoice,
+    this.onEditCard,
   });
 
   final CreditCard card;
   final int? invoiceInCents;
   final VoidCallback? onEditInvoice;
+  final VoidCallback? onEditCard;
 
   @override
   Widget build(BuildContext context) {
@@ -38,11 +40,24 @@ class CreditCardTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        card.name,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              card.name,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          if (!card.isActive) ...[
+                            const SizedBox(width: 8),
+                            const Chip(
+                              visualDensity: VisualDensity.compact,
+                              label: Text('Inativo'),
+                            ),
+                          ],
+                        ],
                       ),
                       Text(
                         '${card.bank} • ${card.brand}',
@@ -55,6 +70,12 @@ class CreditCardTile extends StatelessWidget {
                   IconButton(
                     onPressed: onEditInvoice,
                     tooltip: 'Editar fatura',
+                    icon: const Icon(Icons.price_change_outlined),
+                  ),
+                if (onEditCard != null)
+                  IconButton(
+                    onPressed: onEditCard,
+                    tooltip: 'Editar cartão',
                     icon: const Icon(Icons.edit_outlined),
                   ),
               ],
@@ -87,6 +108,14 @@ class CreditCardTile extends StatelessWidget {
                 ),
               ],
             ),
+            if (!card.isActive) ...[
+              const SizedBox(height: 14),
+              Text(
+                'Este cartão permanece no mês atual, mas não será copiado '
+                'para o próximo.',
+                style: TextStyle(color: Colors.grey.shade400),
+              ),
+            ],
           ],
         ),
       ),

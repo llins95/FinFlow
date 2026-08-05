@@ -7,6 +7,7 @@ Windows.
 
 - mês inicial: agosto de 2026;
 - atualização rápida de faturas, despesas e receitas;
+- cadastro e edição de cartões, limites, datas e ativação mensal;
 - resumo com total a pagar, total disponível e sobra/falta;
 - valores monetários armazenados em centavos inteiros;
 - persistência local com Hive;

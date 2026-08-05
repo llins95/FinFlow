@@ -16,8 +16,7 @@ class FinancialMonth {
 
   DateTime get date => DateTime(year, month);
 
-  String get storageKey =>
-      '$year-${month.toString().padLeft(2, '0')}';
+  String get storageKey => '$year-${month.toString().padLeft(2, '0')}';
 
   List<FinancialEntry> entriesOfType(FinancialEntryType type) {
     return entries.where((entry) => entry.type == type).toList();
@@ -71,6 +70,7 @@ class FinancialMonth {
         .where(
           (entry) =>
               entry.isRecurring &&
+              entry.isActive &&
               entry.type != FinancialEntryType.previousBalance,
         )
         .map(

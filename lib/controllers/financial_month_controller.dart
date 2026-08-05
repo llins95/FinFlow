@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models/financial_entry.dart';
 import '../models/financial_month.dart';
@@ -168,6 +169,39 @@ class FinancialMonthController extends ChangeNotifier {
       amountInCents: amountInCents,
       type: type,
       isRecurring: isRecurring,
+    );
+
+    _currentMonth = currentMonth.addEntry(entry);
+    _rememberMonth(currentMonth);
+    notifyListeners();
+    await _store.save(currentMonth);
+  }
+
+  Future<void> addCardInvoice({
+    required String name,
+    required String bank,
+    required String brand,
+    required int limitInCents,
+    required int closingDay,
+    required int dueDay,
+    required int color,
+    bool isActive = true,
+  }) async {
+    final cardId = const Uuid().v4();
+    final entry = FinancialEntry(
+      id: 'card-$cardId',
+      name: name,
+      amountInCents: 0,
+      type: FinancialEntryType.cardInvoice,
+      isRecurring: true,
+      isActive: isActive,
+      relatedCardId: cardId,
+      cardBank: bank,
+      cardBrand: brand,
+      cardLimitInCents: limitInCents,
+      cardColor: color,
+      closingDay: closingDay,
+      dueDay: dueDay,
     );
 
     _currentMonth = currentMonth.addEntry(entry);
