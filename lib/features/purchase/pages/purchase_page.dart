@@ -225,6 +225,10 @@ class _PurchasePageState extends State<PurchasePage> {
 
     await PurchaseRepository.add(purchase);
 
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       purchaseSaved = true;
     });
@@ -301,7 +305,7 @@ class _PurchasePageState extends State<PurchasePage> {
         padding: const EdgeInsets.all(20),
         children: [
           DropdownButtonFormField<int>(
-            value: selectedCardIndex,
+            initialValue: selectedCardIndex,
             decoration: const InputDecoration(
               labelText: 'Cartão',
               border: OutlineInputBorder(),
@@ -409,7 +413,7 @@ class _PurchasePageState extends State<PurchasePage> {
               SizedBox(
                 width: 150,
                 child: DropdownButtonFormField<int>(
-                  value: installments <= 24 ? installments : null,
+                  initialValue: installments <= 24 ? installments : null,
                   decoration: const InputDecoration(
                     labelText: 'Seleção rápida',
                     border: OutlineInputBorder(),
