@@ -89,7 +89,11 @@ void main() {
     final saveOrNewButton = find.byKey(
       const ValueKey('save-or-new-purchase'),
     );
-    await tester.scrollUntilVisible(saveOrNewButton, 300);
+    await tester.scrollUntilVisible(
+      saveOrNewButton,
+      300,
+      scrollable: find.byType(ListView),
+    );
     await tester.tap(saveOrNewButton);
     await tester.pumpAndSettle();
 
@@ -97,7 +101,11 @@ void main() {
     expect(controller.purchaseRecords.single.entry.installments, 3);
     expect(find.text('Registrar nova compra'), findsOneWidget);
 
-    await tester.scrollUntilVisible(saveOrNewButton, 300);
+    await tester.scrollUntilVisible(
+      saveOrNewButton,
+      300,
+      scrollable: find.byType(ListView),
+    );
     await tester.tap(saveOrNewButton);
     await tester.pumpAndSettle();
 
