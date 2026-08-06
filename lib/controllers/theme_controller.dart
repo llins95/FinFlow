@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 typedef ThemeModePersistence = Future<void> Function(ThemeMode mode);
 
 class ThemeController extends ChangeNotifier {
-  ThemeController({
+  factory ThemeController({
     ThemeMode initialMode = ThemeMode.system,
     ThemeModePersistence? persist,
-  }) : _mode = initialMode,
-       _persist = persist;
+  }) {
+    return ThemeController._(initialMode, persist);
+  }
+
+  ThemeController._(this._mode, this._persist);
 
   ThemeMode _mode;
   final ThemeModePersistence? _persist;
