@@ -420,6 +420,7 @@ class _PurchasePageState extends State<PurchasePage> {
                     width: 150,
                     child: DropdownButtonFormField<int>(
                       key: ValueKey('quick-installments-$_installments'),
+                      isExpanded: true,
                       initialValue: _installments <= 24 ? _installments : null,
                       decoration: const InputDecoration(
                         labelText: 'Seleção rápida',
