@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../controllers/app_update_controller.dart';
 import '../controllers/financial_month_controller.dart';
+import '../controllers/theme_controller.dart';
 import '../features/auth/pages/auth_page.dart';
 import '../models/purchase.dart';
 import '../services/supabase_financial_month_store.dart';
@@ -21,6 +22,7 @@ class FinFlowApp extends StatefulWidget {
     this.legacyPurchases = const [],
     this.onLegacyPurchasesImported,
     this.appUpdateController,
+    this.themeController,
   });
 
   final FinancialMonthController? financialMonthController;
@@ -28,6 +30,7 @@ class FinFlowApp extends StatefulWidget {
   final List<Purchase> legacyPurchases;
   final Future<void> Function()? onLegacyPurchasesImported;
   final AppUpdateController? appUpdateController;
+  final ThemeController? themeController;
 
   @override
   State<FinFlowApp> createState() => _FinFlowAppState();
@@ -35,6 +38,8 @@ class FinFlowApp extends StatefulWidget {
 
 class _FinFlowAppState extends State<FinFlowApp> {
   FinancialMonthController? _controller;
+  late final ThemeController _themeController;
+  late final bool _ownsThemeController;
   StreamSubscription<AuthState>? _authSubscription;
 
   bool _isStarting = true;
@@ -44,12 +49,13 @@ class _FinFlowAppState extends State<FinFlowApp> {
   int _sessionGeneration = 0;
   bool _legacyImportCompleted = false;
 
-  bool get _usesInjectedController =>
-      widget.financialMonthController != null;
+  bool get _usesInjectedController => widget.financialMonthController != null;
 
   @override
   void initState() {
     super.initState();
+    _ownsThemeController = widget.themeController == null;
+    _themeController = widget.themeController ?? ThemeController();
 
     if (_usesInjectedController) {
       _controller = widget.financialMonthController;
@@ -171,23 +177,31 @@ class _FinFlowAppState extends State<FinFlowApp> {
     if (!_usesInjectedController) {
       _controller?.dispose();
     }
+    if (_ownsThemeController) {
+      _themeController.dispose();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'FinFlow',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
-      locale: const Locale('pt', 'BR'),
-      supportedLocales: const [Locale('pt', 'BR')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      home: _buildHome(),
+    return AnimatedBuilder(
+      animation: _themeController,
+      builder: (context, _) => MaterialApp(
+        title: 'FinFlow',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: _themeController.mode,
+        locale: const Locale('pt', 'BR'),
+        supportedLocales: const [Locale('pt', 'BR')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: _buildHome(),
+      ),
     );
   }
 
@@ -204,14 +218,13 @@ class _FinFlowAppState extends State<FinFlowApp> {
     }
 
     if (_isStarting) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_usesInjectedController) {
       return NavigationPage(
         controller: _controller!,
+        themeController: _themeController,
         appUpdateController: widget.appUpdateController,
       );
     }
@@ -228,6 +241,7 @@ class _FinFlowAppState extends State<FinFlowApp> {
 
     return NavigationPage(
       controller: controller,
+      themeController: _themeController,
       supabaseClient: client,
       appUpdateController: widget.appUpdateController,
     );
@@ -278,10 +292,7 @@ class _SupabaseConfigurationPage extends StatelessWidget {
 }
 
 class _StartupErrorPage extends StatelessWidget {
-  const _StartupErrorPage({
-    required this.message,
-    required this.onRetry,
-  });
+  const _StartupErrorPage({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback? onRetry;

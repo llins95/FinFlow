@@ -3,9 +3,11 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/app.dart';
+import 'controllers/theme_controller.dart';
 import 'models/purchase.dart';
 import 'models/purchase_adapter.dart';
 import 'services/supabase_financial_month_store.dart';
+import 'shared/app_preferences.dart';
 import 'shared/financial_month_repository.dart';
 import 'shared/purchase_repository.dart';
 import 'shared/supabase_config.dart';
@@ -22,6 +24,12 @@ Future<void> main() async {
   await Hive.openBox<Purchase>('purchases');
   await Hive.openBox<dynamic>(HiveFinancialMonthStore.boxName);
   await Hive.openBox<dynamic>(SupabaseFinancialMonthStore.queueBoxName);
+  await Hive.openBox<dynamic>(AppPreferences.boxName);
+
+  final themeController = ThemeController(
+    initialMode: AppPreferences.loadThemeMode(),
+    persist: AppPreferences.saveThemeMode,
+  );
 
   SupabaseClient? supabaseClient;
   if (SupabaseConfig.isConfigured) {
@@ -38,6 +46,7 @@ Future<void> main() async {
 
   runApp(
     FinFlowApp(
+      themeController: themeController,
       supabaseClient: supabaseClient,
       legacyPurchases: legacyPurchases,
       onLegacyPurchasesImported: PurchaseRepository.clear,

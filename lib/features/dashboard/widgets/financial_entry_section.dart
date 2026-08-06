@@ -12,6 +12,7 @@ class FinancialEntrySection extends StatelessWidget {
     required this.onEdit,
     this.onAdd,
     this.onDelete,
+    this.amountInCentsFor,
   });
 
   final String title;
@@ -20,13 +21,15 @@ class FinancialEntrySection extends StatelessWidget {
   final ValueChanged<FinancialEntry> onEdit;
   final VoidCallback? onAdd;
   final ValueChanged<FinancialEntry>? onDelete;
+  final int Function(FinancialEntry entry)? amountInCentsFor;
 
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
     final total = entries.fold(
       0,
-      (value, entry) => value + entry.amountInCents,
+      (value, entry) =>
+          value + (amountInCentsFor?.call(entry) ?? entry.amountInCents),
     );
 
     return Card(
@@ -76,12 +79,16 @@ class FinancialEntrySection extends StatelessWidget {
                 (entry) => ListTile(
                   contentPadding: const EdgeInsets.only(left: 4, right: 0),
                   title: Text(entry.name),
-                  subtitle: _subtitle(entry),
+                  subtitle: _subtitle(entry, currency),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        currency.format(entry.amountInCents / 100),
+                        currency.format(
+                          (amountInCentsFor?.call(entry) ??
+                                  entry.amountInCents) /
+                              100,
+                        ),
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                       IconButton(
@@ -106,7 +113,7 @@ class FinancialEntrySection extends StatelessWidget {
     );
   }
 
-  Widget? _subtitle(FinancialEntry entry) {
+  Widget? _subtitle(FinancialEntry entry, NumberFormat currency) {
     final details = <String>[];
     if (entry.closingDay != null) {
       details.add('Fecha dia ${entry.closingDay}');
@@ -116,6 +123,15 @@ class FinancialEntrySection extends StatelessWidget {
     }
     if (entry.isRecurring && entry.type != FinancialEntryType.cardInvoice) {
       details.add('Recorrente');
+    }
+    if (entry.type == FinancialEntryType.cardInvoice &&
+        amountInCentsFor != null) {
+      final automaticAmount = amountInCentsFor!(entry) - entry.amountInCents;
+      if (automaticAmount > 0) {
+        details.add(
+          'Inclui ${currency.format(automaticAmount / 100)} em compras',
+        );
+      }
     }
 
     return details.isEmpty ? null : Text(details.join(' • '));

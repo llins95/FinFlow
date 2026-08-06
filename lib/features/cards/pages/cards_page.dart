@@ -18,16 +18,17 @@ class CardsPage extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
-        final invoices = controller.currentMonth
-            .entriesOfType(FinancialEntryType.cardInvoice)
-          ..sort((first, second) {
-            if (first.isActive != second.isActive) {
-              return first.isActive ? -1 : 1;
-            }
-            return (first.closingDay ?? 32).compareTo(
-              second.closingDay ?? 32,
-            );
-          });
+        final invoices =
+            controller.currentMonth.entriesOfType(
+              FinancialEntryType.cardInvoice,
+            )..sort((first, second) {
+              if (first.isActive != second.isActive) {
+                return first.isActive ? -1 : 1;
+              }
+              return (first.closingDay ?? 32).compareTo(
+                second.closingDay ?? 32,
+              );
+            });
 
         return Scaffold(
           appBar: AppBar(
@@ -61,7 +62,14 @@ class CardsPage extends StatelessWidget {
 
                     return CreditCardTile(
                       card: card,
-                      invoiceInCents: invoice.amountInCents,
+                      invoiceInCents: controller.cardInvoiceTotalInCents(
+                        invoice,
+                      ),
+                      automaticPurchasesInCents: controller
+                          .purchaseInstallmentsForCardInMonth(
+                            invoice,
+                            controller.currentMonth.date,
+                          ),
                       onEditInvoice: () => _editInvoice(context, invoice),
                       onEditCard: () => _editCard(context, invoice, card),
                     );
@@ -129,7 +137,7 @@ class CardsPage extends StatelessWidget {
   ) async {
     final draft = await FinancialEntryDialog.show(
       context,
-      title: 'Atualizar fatura ${invoice.name}',
+      title: 'Atualizar valor manual de ${invoice.name}',
       initialName: invoice.name,
       initialAmountInCents: invoice.amountInCents,
       initialRecurring: true,

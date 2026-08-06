@@ -8,12 +8,14 @@ class CreditCardTile extends StatelessWidget {
     super.key,
     required this.card,
     this.invoiceInCents,
+    this.automaticPurchasesInCents = 0,
     this.onEditInvoice,
     this.onEditCard,
   });
 
   final CreditCard card;
   final int? invoiceInCents;
+  final int automaticPurchasesInCents;
   final VoidCallback? onEditInvoice;
   final VoidCallback? onEditCard;
 
@@ -90,10 +92,20 @@ class CreditCardTile extends StatelessWidget {
               invoiceInCents == null
                   ? 'Não cadastrada'
                   : currency.format(invoiceInCents! / 100),
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
+            if (automaticPurchasesInCents > 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Inclui ${currency.format(automaticPurchasesInCents / 100)} '
+                'em compras adicionadas',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             Wrap(
               spacing: 24,

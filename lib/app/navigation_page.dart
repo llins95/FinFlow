@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../controllers/app_update_controller.dart';
 import '../controllers/financial_month_controller.dart';
+import '../controllers/theme_controller.dart';
 import '../features/calendar/pages/calendar_page.dart';
 import '../features/cards/pages/cards_page.dart';
 import '../features/dashboard/pages/home_page.dart';
@@ -17,11 +19,13 @@ class NavigationPage extends StatefulWidget {
   const NavigationPage({
     super.key,
     required this.controller,
+    required this.themeController,
     this.supabaseClient,
     this.appUpdateController,
   });
 
   final FinancialMonthController controller;
+  final ThemeController themeController;
   final SupabaseClient? supabaseClient;
   final AppUpdateController? appUpdateController;
 
@@ -40,33 +44,33 @@ class _NavigationPageState extends State<NavigationPage>
   static const items = [
     _NavigationItem(
       label: 'Início',
-      icon: Icons.home_outlined,
-      selectedIcon: Icons.home,
+      icon: FluentIcons.home_24_regular,
+      selectedIcon: FluentIcons.home_24_filled,
     ),
     _NavigationItem(
       label: 'Cartões',
-      icon: Icons.credit_card_outlined,
-      selectedIcon: Icons.credit_card,
+      icon: FluentIcons.wallet_credit_card_24_regular,
+      selectedIcon: FluentIcons.wallet_credit_card_24_filled,
     ),
     _NavigationItem(
       label: 'Compra',
-      icon: Icons.add_circle_outline,
-      selectedIcon: Icons.add_circle,
+      icon: FluentIcons.add_circle_24_regular,
+      selectedIcon: FluentIcons.add_circle_24_filled,
     ),
     _NavigationItem(
       label: 'Histórico',
-      icon: Icons.receipt_long_outlined,
-      selectedIcon: Icons.receipt_long,
+      icon: FluentIcons.receipt_24_regular,
+      selectedIcon: FluentIcons.receipt_24_filled,
     ),
     _NavigationItem(
       label: 'Parcelas',
-      icon: Icons.calendar_month_outlined,
-      selectedIcon: Icons.calendar_month,
+      icon: FluentIcons.calendar_month_24_regular,
+      selectedIcon: FluentIcons.calendar_month_24_filled,
     ),
     _NavigationItem(
       label: 'Mais',
-      icon: Icons.settings_outlined,
-      selectedIcon: Icons.settings,
+      icon: FluentIcons.settings_24_regular,
+      selectedIcon: FluentIcons.settings_24_filled,
     ),
   ];
 
@@ -172,23 +176,24 @@ class _NavigationPageState extends State<NavigationPage>
       1 => CardsPage(controller: widget.controller),
       2 => PurchasePage(controller: widget.controller),
       3 => HistoryPage(
-          controller: widget.controller,
-          onOpenMonth: (month) async {
-            final opened = await widget.controller.goToMonth(
-              month.year,
-              month.month,
-            );
-            if (opened && mounted) {
-              _selectPage(0);
-            }
-          },
-        ),
+        controller: widget.controller,
+        onOpenMonth: (month) async {
+          final opened = await widget.controller.goToMonth(
+            month.year,
+            month.month,
+          );
+          if (opened && mounted) {
+            _selectPage(0);
+          }
+        },
+      ),
       4 => CalendarPage(controller: widget.controller),
       5 => SettingsPage(
-          controller: widget.controller,
-          appUpdateController: _appUpdateController,
-          supabaseClient: widget.supabaseClient,
-        ),
+        controller: widget.controller,
+        themeController: widget.themeController,
+        appUpdateController: _appUpdateController,
+        supabaseClient: widget.supabaseClient,
+      ),
       _ => const SizedBox.shrink(),
     };
   }

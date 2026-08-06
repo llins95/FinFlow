@@ -84,6 +84,56 @@ void main() {
       expect(schedule.last.dueDate, DateTime(2026, 11, 10));
     });
 
+    test('soma cada parcela na fatura do mês correspondente', () async {
+      await controller.addPurchase(
+        description: 'Compra parcelada na fatura',
+        amountInCents: 10001,
+        installments: 3,
+        purchaseDate: DateTime(2026, 8, 5),
+        cardInvoice: controller.activeCardInvoices.single,
+      );
+
+      expect(controller.currentTotalDebtInCents, 0);
+
+      await controller.goToNextMonth();
+      final septemberInvoice = controller.activeCardInvoices.single;
+      expect(controller.cardInvoiceTotalInCents(septemberInvoice), 3334);
+      expect(controller.currentTotalDebtInCents, 3334);
+
+      await controller.updateEntry(
+        septemberInvoice.copyWith(amountInCents: 5000),
+      );
+      expect(
+        controller.cardInvoiceTotalInCents(
+          controller.activeCardInvoices.single,
+        ),
+        8334,
+      );
+
+      await controller.goToNextMonth();
+      final octoberInvoice = controller.activeCardInvoices.single;
+      expect(controller.cardInvoiceTotalInCents(octoberInvoice), 3334);
+      expect(controller.currentTotalDebtInCents, 3334);
+    });
+
+    test('mostra no mês atual a compra feita antes do fechamento', () async {
+      await controller.addPurchase(
+        description: 'Compra antes do fechamento',
+        amountInCents: 2500,
+        installments: 1,
+        purchaseDate: DateTime(2026, 8, 2),
+        cardInvoice: controller.activeCardInvoices.single,
+      );
+
+      expect(
+        controller.cardInvoiceTotalInCents(
+          controller.activeCardInvoices.single,
+        ),
+        2500,
+      );
+      expect(controller.currentTotalDebtInCents, 2500);
+    });
+
     test('move a compra quando a data muda de mês', () async {
       await controller.addPurchase(
         description: 'Compra móvel',

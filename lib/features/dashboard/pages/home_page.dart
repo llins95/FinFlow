@@ -1,9 +1,11 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../controllers/financial_month_controller.dart';
 import '../../../models/financial_entry.dart';
 import '../../finance/widgets/financial_entry_dialog.dart';
+import 'purchase_search_page.dart';
 import '../widgets/financial_entry_section.dart';
 
 class HomePage extends StatelessWidget {
@@ -36,11 +38,23 @@ class HomePage extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: [
-              Text(
-                '${_greeting()}, Murilo 👋',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${_greeting()}, Murilo 👋',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  IconButton.filledTonal(
+                    key: const ValueKey('home-purchase-search'),
+                    onPressed: () =>
+                        showPurchaseSearch(context, controller.purchaseRecords),
+                    tooltip: 'Buscar compra ou mês',
+                    icon: const Icon(FluentIcons.search_24_regular),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               _MonthSelector(controller: controller),
@@ -56,6 +70,7 @@ class HomePage extends StatelessWidget {
                 title: 'Faturas dos cartões',
                 icon: Icons.credit_card,
                 entries: cardInvoices,
+                amountInCentsFor: controller.cardInvoiceTotalInCents,
                 onEdit: (entry) => _editEntry(context, entry),
               ),
               const SizedBox(height: 16),
@@ -102,13 +117,12 @@ class HomePage extends StatelessWidget {
     return 'Boa noite';
   }
 
-  Future<void> _editEntry(
-    BuildContext context,
-    FinancialEntry entry,
-  ) async {
+  Future<void> _editEntry(BuildContext context, FinancialEntry entry) async {
     final draft = await FinancialEntryDialog.show(
       context,
-      title: 'Atualizar ${entry.name}',
+      title: entry.type == FinancialEntryType.cardInvoice
+          ? 'Atualizar valor manual de ${entry.name}'
+          : 'Atualizar ${entry.name}',
       initialName: entry.name,
       initialAmountInCents: entry.amountInCents,
       initialRecurring: entry.isRecurring,
@@ -153,10 +167,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Future<void> _deleteEntry(
-    BuildContext context,
-    FinancialEntry entry,
-  ) async {
+  Future<void> _deleteEntry(BuildContext context, FinancialEntry entry) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -207,9 +218,9 @@ class _MonthSelector extends StatelessWidget {
             child: Text(
               label,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
           IconButton(
@@ -232,7 +243,9 @@ class _FinancialOverview extends StatelessWidget {
   Widget build(BuildContext context) {
     final month = controller.currentMonth;
     final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
-    final hasSurplus = month.balanceInCents >= 0;
+    final totalDebtInCents = controller.currentTotalDebtInCents;
+    final balanceInCents = controller.currentBalanceInCents;
+    final hasSurplus = balanceInCents >= 0;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -247,7 +260,7 @@ class _FinancialOverview extends StatelessWidget {
             _SummaryCard(
               width: cardWidth,
               label: 'Total a pagar',
-              value: currency.format(month.totalDebtInCents / 100),
+              value: currency.format(totalDebtInCents / 100),
               icon: Icons.arrow_upward_rounded,
               color: Colors.orange,
             ),
@@ -261,7 +274,7 @@ class _FinancialOverview extends StatelessWidget {
             _SummaryCard(
               width: cardWidth,
               label: hasSurplus ? 'Sobra' : 'Falta',
-              value: currency.format(month.balanceInCents.abs() / 100),
+              value: currency.format(balanceInCents.abs() / 100),
               icon: hasSurplus
                   ? Icons.check_circle_outline
                   : Icons.error_outline,

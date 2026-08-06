@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../controllers/app_update_controller.dart';
 import '../../../controllers/financial_month_controller.dart';
+import '../../../controllers/theme_controller.dart';
 import '../../../models/app_update.dart';
 import '../../../services/sync_status_controller.dart';
 import '../../purchase/pages/notification_import_page.dart';
@@ -14,11 +16,13 @@ class SettingsPage extends StatelessWidget {
     super.key,
     required this.controller,
     required this.appUpdateController,
+    required this.themeController,
     this.supabaseClient,
   });
 
   final FinancialMonthController controller;
   final AppUpdateController appUpdateController;
+  final ThemeController themeController;
   final SupabaseClient? supabaseClient;
 
   @override
@@ -36,7 +40,7 @@ class SettingsPage extends StatelessWidget {
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.person_outline),
+                  leading: const Icon(FluentIcons.person_24_regular),
                   title: const Text('Conta pessoal'),
                   subtitle: Text(user?.email ?? 'Uso individual de Murilo'),
                 ),
@@ -93,6 +97,8 @@ class SettingsPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
+          _ThemeModeCard(controller: themeController),
+          const SizedBox(height: 16),
           _AppUpdateCard(controller: appUpdateController),
           if (supabaseClient != null) ...[
             const SizedBox(height: 16),
@@ -132,6 +138,66 @@ class SettingsPage extends StatelessWidget {
     if (shouldSignOut == true) {
       await supabaseClient?.auth.signOut();
     }
+  }
+}
+
+class _ThemeModeCard extends StatelessWidget {
+  const _ThemeModeCard({required this.controller});
+
+  final ThemeController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) => Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Icon(FluentIcons.dark_theme_24_regular),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Aparência',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 4),
+                        const Text('Escolha o tema Fluent usado no FinFlow.'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SegmentedButton<ThemeMode>(
+                key: const ValueKey('theme-mode-selector'),
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(
+                    value: ThemeMode.system,
+                    label: Text('Sistema'),
+                  ),
+                  ButtonSegment(value: ThemeMode.light, label: Text('Claro')),
+                  ButtonSegment(value: ThemeMode.dark, label: Text('Escuro')),
+                ],
+                selected: {controller.mode},
+                onSelectionChanged: (selection) {
+                  unawaited(controller.setMode(selection.single));
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -255,10 +321,7 @@ class _AppUpdateCard extends StatelessWidget {
 }
 
 class _SyncStatusTile extends StatelessWidget {
-  const _SyncStatusTile({
-    required this.status,
-    required this.onSync,
-  });
+  const _SyncStatusTile({required this.status, required this.onSync});
 
   final SyncStatusController status;
   final VoidCallback onSync;
@@ -270,9 +333,7 @@ class _SyncStatusTile extends StatelessWidget {
     if (status.pendingCount > 0) {
       final count = status.pendingCount;
       subtitleParts.add(
-        count == 1
-            ? '1 alteração pendente'
-            : '$count alterações pendentes',
+        count == 1 ? '1 alteração pendente' : '$count alterações pendentes',
       );
     }
 

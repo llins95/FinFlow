@@ -9,6 +9,9 @@ Windows.
 - atualização rápida de faturas, despesas e receitas;
 - cadastro e edição de cartões, limites, datas e ativação mensal;
 - compras à vista ou parceladas usando os cartões cadastrados;
+- parcelas somadas automaticamente à fatura do mês de vencimento;
+- busca por compra ou mês com a sequência completa de parcelas;
+- Microsoft Fluent Design com temas claro, escuro e padrão do sistema;
 - detecção opcional de compras da Carteira do Google no Android;
 - verificação, download e instalação de atualizações no Android;
 - calendário de parcelas com rateio exato em centavos;
@@ -52,6 +55,8 @@ versão e a publicação Realtime.
 
 As compras fazem parte do JSON do mês financeiro. Por isso, usam a mesma fila
 offline e a mesma sincronização sem exigir uma segunda tabela.
+O valor manual da fatura continua preservado; na interface, ele é somado apenas
+às parcelas que vencem no mês aberto.
 
 ## Compras detectadas no Android
 

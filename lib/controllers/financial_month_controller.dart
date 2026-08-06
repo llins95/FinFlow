@@ -7,6 +7,7 @@ import '../models/financial_entry.dart';
 import '../models/financial_month.dart';
 import '../models/purchase.dart';
 import '../models/purchase_record.dart';
+import '../services/finance_service.dart';
 import '../services/sync_status_controller.dart';
 import '../shared/financial_month_repository.dart';
 import '../shared/initial_financial_data.dart';
@@ -55,14 +56,43 @@ class FinancialMonthController extends ChangeNotifier {
     return List.unmodifiable(records);
   }
 
-  List<FinancialEntry> get activeCardInvoices {
-    final cards = currentMonth
+  int purchaseInstallmentsForCardInMonth(
+    FinancialEntry cardInvoice,
+    DateTime month,
+  ) {
+    return FinanceService.totalForCardInMonthInCents(
+      month,
+      cardInvoice.relatedCardId ?? cardInvoice.id,
+      purchaseRecords,
+    );
+  }
+
+  int cardInvoiceTotalInCents(FinancialEntry cardInvoice) {
+    return cardInvoice.amountInCents +
+        purchaseInstallmentsForCardInMonth(cardInvoice, currentMonth.date);
+  }
+
+  int get currentTotalDebtInCents {
+    final regularExpenses = currentMonth
+        .entriesOfType(FinancialEntryType.expense)
+        .fold<int>(0, (total, entry) => total + entry.amountInCents);
+    final cardInvoices = currentMonth
         .entriesOfType(FinancialEntryType.cardInvoice)
-        .where((entry) => entry.isActive)
-        .toList()
-      ..sort(
-        (a, b) => (a.closingDay ?? 32).compareTo(b.closingDay ?? 32),
-      );
+        .fold<int>(0, (total, entry) => total + cardInvoiceTotalInCents(entry));
+
+    return regularExpenses + cardInvoices;
+  }
+
+  int get currentBalanceInCents =>
+      currentMonth.totalAvailableInCents - currentTotalDebtInCents;
+
+  List<FinancialEntry> get activeCardInvoices {
+    final cards =
+        currentMonth
+            .entriesOfType(FinancialEntryType.cardInvoice)
+            .where((entry) => entry.isActive)
+            .toList()
+          ..sort((a, b) => (a.closingDay ?? 32).compareTo(b.closingDay ?? 32));
     return List.unmodifiable(cards);
   }
 
@@ -70,9 +100,7 @@ class FinancialMonthController extends ChangeNotifier {
     final cardsById = <String, FinancialEntry>{};
 
     for (final month in availableMonths) {
-      for (final entry in month.entriesOfType(
-        FinancialEntryType.cardInvoice,
-      )) {
+      for (final entry in month.entriesOfType(FinancialEntryType.cardInvoice)) {
         final cardId = entry.relatedCardId ?? entry.id;
         cardsById.putIfAbsent(cardId, () => entry);
       }
@@ -94,10 +122,7 @@ class FinancialMonthController extends ChangeNotifier {
     _setLoading(true);
 
     try {
-      var initialMonth = await _store.load(
-        firstMonth.year,
-        firstMonth.month,
-      );
+      var initialMonth = await _store.load(firstMonth.year, firstMonth.month);
 
       if (initialMonth == null) {
         initialMonth = buildInitialFinancialMonth();
@@ -106,10 +131,7 @@ class FinancialMonthController extends ChangeNotifier {
       _rememberMonth(initialMonth);
 
       final requestedDate = now ?? DateTime.now();
-      final requestedMonth = DateTime(
-        requestedDate.year,
-        requestedDate.month,
-      );
+      final requestedMonth = DateTime(requestedDate.year, requestedDate.month);
       final targetMonth = requestedMonth.isBefore(firstMonth)
           ? firstMonth
           : requestedMonth;
@@ -140,10 +162,7 @@ class FinancialMonthController extends ChangeNotifier {
       return false;
     }
 
-    final previousDate = DateTime(
-      currentMonth.year,
-      currentMonth.month - 1,
-    );
+    final previousDate = DateTime(currentMonth.year, currentMonth.month - 1);
     final previousMonth = await _store.load(
       previousDate.year,
       previousDate.month,
@@ -457,10 +476,7 @@ class FinancialMonthController extends ChangeNotifier {
 
     while (month.date.isBefore(targetDate)) {
       final nextDate = DateTime(month.year, month.month + 1);
-      final storedNextMonth = await _loadMonth(
-        nextDate.year,
-        nextDate.month,
-      );
+      final storedNextMonth = await _loadMonth(nextDate.year, nextDate.month);
       if (storedNextMonth != null) {
         month = storedNextMonth;
         continue;
