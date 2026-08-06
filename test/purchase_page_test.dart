@@ -101,6 +101,9 @@ void main() {
     expect(controller.purchaseRecords.single.entry.installments, 3);
     expect(find.text('Registrar nova compra'), findsOneWidget);
 
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
     await tester.scrollUntilVisible(
       saveOrNewButton,
       300,
