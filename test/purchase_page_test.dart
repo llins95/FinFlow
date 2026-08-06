@@ -86,20 +86,20 @@ void main() {
     expect(find.textContaining('1/3'), findsOneWidget);
     expect(find.textContaining('3/3'), findsOneWidget);
 
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('save-or-new-purchase')),
+    final saveOrNewButton = find.byKey(
+      const ValueKey('save-or-new-purchase'),
+      skipOffstage: false,
     );
-    await tester.tap(find.byKey(const ValueKey('save-or-new-purchase')));
+    await tester.ensureVisible(saveOrNewButton);
+    await tester.tap(saveOrNewButton);
     await tester.pumpAndSettle();
 
     expect(controller.purchaseRecords, hasLength(1));
     expect(controller.purchaseRecords.single.entry.installments, 3);
     expect(find.text('Registrar nova compra'), findsOneWidget);
 
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('save-or-new-purchase')),
-    );
-    await tester.tap(find.byKey(const ValueKey('save-or-new-purchase')));
+    await tester.ensureVisible(saveOrNewButton);
+    await tester.tap(saveOrNewButton);
     await tester.pumpAndSettle();
 
     final description = tester.widget<TextField>(
