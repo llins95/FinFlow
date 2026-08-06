@@ -25,8 +25,9 @@ abstract interface class AppUpdateGateway {
 class AppUpdateService implements AppUpdateGateway {
   AppUpdateService({
     HttpClient? httpClient,
-    this.releasesApi = _defaultReleasesApi,
-  }) : _httpClient = httpClient ?? HttpClient();
+    Uri? releasesApi,
+  }) : _httpClient = httpClient ?? HttpClient(),
+       releasesApi = releasesApi ?? _defaultReleasesApi;
 
   static final Uri _defaultReleasesApi = Uri.https(
     'api.github.com',
