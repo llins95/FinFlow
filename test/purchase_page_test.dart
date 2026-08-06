@@ -92,7 +92,7 @@ void main() {
     await tester.scrollUntilVisible(
       saveOrNewButton,
       300,
-      scrollable: find.byType(ListView),
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.tap(saveOrNewButton);
     await tester.pumpAndSettle();
@@ -104,7 +104,7 @@ void main() {
     await tester.scrollUntilVisible(
       saveOrNewButton,
       300,
-      scrollable: find.byType(ListView),
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.tap(saveOrNewButton);
     await tester.pumpAndSettle();
