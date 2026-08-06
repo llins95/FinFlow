@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../controllers/app_update_controller.dart';
 import '../../../controllers/financial_month_controller.dart';
+import '../../../models/app_update.dart';
 import '../../../services/sync_status_controller.dart';
 import '../../purchase/pages/notification_import_page.dart';
 
@@ -11,10 +13,12 @@ class SettingsPage extends StatelessWidget {
   const SettingsPage({
     super.key,
     required this.controller,
+    required this.appUpdateController,
     this.supabaseClient,
   });
 
   final FinancialMonthController controller;
+  final AppUpdateController appUpdateController;
   final SupabaseClient? supabaseClient;
 
   @override
@@ -88,6 +92,8 @@ class SettingsPage extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          _AppUpdateCard(controller: appUpdateController),
           if (supabaseClient != null) ...[
             const SizedBox(height: 16),
             OutlinedButton.icon(
@@ -126,6 +132,125 @@ class SettingsPage extends StatelessWidget {
     if (shouldSignOut == true) {
       await supabaseClient?.auth.signOut();
     }
+  }
+}
+
+class _AppUpdateCard extends StatelessWidget {
+  const _AppUpdateCard({required this.controller});
+
+  final AppUpdateController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final installed = controller.installedVersion;
+        final available = controller.availableUpdate;
+
+        return Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.system_update_alt),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Atualização do aplicativo',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(_statusText(controller)),
+                        ],
+                      ),
+                    ),
+                    if (controller.isBusy)
+                      const SizedBox.square(
+                        dimension: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                  ],
+                ),
+                if (installed != null || available != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    [
+                      if (installed != null) 'Instalada: ${installed.name}',
+                      if (available != null)
+                        'Disponível: ${available.versionName}',
+                    ].join('  •  '),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                if (controller.errorMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    controller.errorMessage!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                if (available != null)
+                  FilledButton.icon(
+                    onPressed: controller.isBusy
+                        ? null
+                        : () => unawaited(controller.downloadAndInstall()),
+                    icon: const Icon(Icons.download),
+                    label: Text(
+                      controller.status ==
+                              AppUpdateStatus.waitingForInstallPermission
+                          ? 'Autorizar instalação'
+                          : 'Baixar e instalar',
+                    ),
+                  )
+                else
+                  OutlinedButton.icon(
+                    onPressed: controller.isBusy
+                        ? null
+                        : () => unawaited(controller.checkForUpdates()),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Verificar atualizações'),
+                  ),
+                const SizedBox(height: 8),
+                const Text(
+                  'O Android sempre pedirá sua confirmação antes de '
+                  'instalar. O APK é validado por SHA-256.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _statusText(AppUpdateController controller) {
+    return switch (controller.status) {
+      AppUpdateStatus.idle => 'Verifique se existe uma nova versão.',
+      AppUpdateStatus.unsupported =>
+        'Atualização dentro do app disponível apenas no Android.',
+      AppUpdateStatus.checking => 'Verificando no GitHub...',
+      AppUpdateStatus.upToDate => 'Você já está na versão mais recente.',
+      AppUpdateStatus.available => 'Uma nova versão está disponível.',
+      AppUpdateStatus.waitingForInstallPermission =>
+        'Permita que o FinFlow instale apps e volte para continuar.',
+      AppUpdateStatus.downloading => 'Baixando e validando o APK...',
+      AppUpdateStatus.openingInstaller =>
+        'Confirme a atualização na tela do Android.',
+      AppUpdateStatus.error => 'Não foi possível atualizar agora.',
+    };
   }
 }
 

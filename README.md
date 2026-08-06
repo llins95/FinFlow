@@ -10,6 +10,7 @@ Windows.
 - cadastro e edição de cartões, limites, datas e ativação mensal;
 - compras à vista ou parceladas usando os cartões cadastrados;
 - detecção opcional de compras da Carteira do Google no Android;
+- verificação, download e instalação de atualizações no Android;
 - calendário de parcelas com rateio exato em centavos;
 - resumo com total a pagar, total disponível e sobra/falta;
 - valores monetários armazenados em centavos inteiros;
@@ -63,6 +64,21 @@ ser revisados antes de salvar. O texto bruto da notificação fica localmente no
 Android e não é enviado ao Supabase. Depois da confirmação, somente o registro
 normal da compra é sincronizado. O acesso pode ser revogado a qualquer momento
 nas configurações do sistema.
+
+## Atualizações no Android
+
+Ao abrir o aplicativo, o FinFlow consulta a release mais recente deste
+repositório. Quando o `versionCode` publicado for maior que o instalado, o app
+exibe um aviso e também disponibiliza a atualização em **Mais > Atualização do
+aplicativo**.
+
+O APK é baixado para o cache privado, conferido com SHA-256 e entregue ao
+instalador oficial do Android. Na primeira vez, o Android solicita que o usuário
+autorize o FinFlow como fonte de instalação. Nenhuma instalação é silenciosa.
+
+As releases são assinadas sempre com o mesmo keystore, mantido somente nos
+Repository Secrets. Os nomes e o procedimento estão em
+`docs/android-signing.md`.
 
 ## Validar
 

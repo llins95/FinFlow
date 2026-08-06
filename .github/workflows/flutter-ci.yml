@@ -8,6 +8,12 @@ on:
     branches:
       - feat/monthly-finance
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: Publicar APK Android assinado
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -54,7 +60,7 @@ jobs:
       - name: Create APK checksum
         run: sha256sum build/app/outputs/flutter-apk/app-debug.apk > build/app/outputs/flutter-apk/app-debug.apk.sha256
 
-      - name: Publish test APK
+      - name: Publish validation APK
         uses: actions/upload-artifact@v4
         with:
           name: FinFlow-S23-debug-${{ github.sha }}
@@ -63,3 +69,129 @@ jobs:
             build/app/outputs/flutter-apk/app-debug.apk.sha256
           if-no-files-found: error
           retention-days: 30
+
+  release_android:
+    name: Publish signed Android release
+    needs: validate
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.publish_release) ||
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.4
+          channel: stable
+          cache: true
+
+      - name: Verify signing secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for variable in \
+            ANDROID_KEYSTORE_BASE64 \
+            ANDROID_KEYSTORE_PASSWORD \
+            ANDROID_KEY_ALIAS \
+            ANDROID_KEY_PASSWORD
+          do
+            if [ -z "${!variable}" ]; then
+              echo "::error::Repository Secret ausente: $variable"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Restore signing keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" \
+            | base64 --decode \
+            > android/app/finflow-release.jks
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build signed release APK
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/app/finflow-release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://jbfwcxgmdpoqnulnajed.supabase.co' }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_bEOdvlZurZkI_WqRhkDk0Q_TV0n0UT-' }}
+        run: |
+          flutter build apk --release \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY"
+
+      - name: Verify APK signature and prepare release files
+        id: release
+        run: |
+          apksigner_path="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$apksigner_path" verify --verbose --print-certs \
+            build/app/outputs/flutter-apk/app-release.apk
+
+          version="$(awk '/^version:/ {print $2}' pubspec.yaml)"
+          version_name="${version%%+*}"
+          version_code="${version##*+}"
+          tag="v${version_name}+${version_code}"
+
+          mkdir -p release
+          cp build/app/outputs/flutter-apk/app-release.apk release/FinFlow.apk
+          cd release
+          sha256sum FinFlow.apk > FinFlow.apk.sha256
+          printf '%s\n' \
+            "FinFlow ${version_name} (${version_code})" \
+            "" \
+            "APK Android assinado e validado automaticamente." \
+            "A instalação exige confirmação do Android." \
+            > release-notes.md
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure version was not published before
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG"; then
+            echo "::error::A versão $RELEASE_TAG já foi publicada. Aumente a versão no pubspec.yaml."
+            exit 1
+          fi
+
+      - name: Publish versioned GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version_name }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            release/FinFlow.apk \
+            release/FinFlow.apk.sha256 \
+            --target "$GITHUB_SHA" \
+            --title "FinFlow $RELEASE_VERSION (teste)" \
+            --notes-file release/release-notes.md
+
+      - name: Publish signed APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinFlow-S23-signed-${{ steps.release.outputs.tag }}
+          path: |
+            release/FinFlow.apk
+            release/FinFlow.apk.sha256
+          if-no-files-found: error
+          retention-days: 90

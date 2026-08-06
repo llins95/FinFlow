@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../controllers/app_update_controller.dart';
 import '../controllers/financial_month_controller.dart';
 import '../features/auth/pages/auth_page.dart';
 import '../models/purchase.dart';
@@ -19,12 +20,14 @@ class FinFlowApp extends StatefulWidget {
     this.supabaseClient,
     this.legacyPurchases = const [],
     this.onLegacyPurchasesImported,
+    this.appUpdateController,
   });
 
   final FinancialMonthController? financialMonthController;
   final SupabaseClient? supabaseClient;
   final List<Purchase> legacyPurchases;
   final Future<void> Function()? onLegacyPurchasesImported;
+  final AppUpdateController? appUpdateController;
 
   @override
   State<FinFlowApp> createState() => _FinFlowAppState();
@@ -207,7 +210,10 @@ class _FinFlowAppState extends State<FinFlowApp> {
     }
 
     if (_usesInjectedController) {
-      return NavigationPage(controller: _controller!);
+      return NavigationPage(
+        controller: _controller!,
+        appUpdateController: widget.appUpdateController,
+      );
     }
 
     final client = widget.supabaseClient;
@@ -223,6 +229,7 @@ class _FinFlowAppState extends State<FinFlowApp> {
     return NavigationPage(
       controller: controller,
       supabaseClient: client,
+      appUpdateController: widget.appUpdateController,
     );
   }
 }
