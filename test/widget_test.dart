@@ -1,6 +1,7 @@
 import 'package:finflow/app/app.dart';
 import 'package:finflow/controllers/financial_month_controller.dart';
 import 'package:finflow/shared/financial_month_repository.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -54,5 +55,40 @@ void main() {
       expect(find.text(label), findsOneWidget);
     }
     expect(find.text('Parcelas'), findsNothing);
+  });
+
+  testWidgets('adapta a navegação e os recursos para o Windows 11', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+
+    final controller = FinancialMonthController(MemoryFinancialMonthStore());
+    await controller.initialize(now: DateTime(2026, 8, 5));
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(FinFlowApp(financialMonthController: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.byKey(const ValueKey('desktop-finflow-icon')), findsOneWidget);
+
+    await tester.tap(find.text('Mais'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('windows-update-channel')),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Disponível somente no Android'),
+      findsOneWidget,
+    );
+
+    debugDefaultTargetPlatformOverride = null;
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
   });
 }

@@ -70,6 +70,60 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  validate_windows:
+    name: Build Windows 11 package
+    needs: validate
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.4
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build configured Windows release
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://jbfwcxgmdpoqnulnajed.supabase.co' }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_bEOdvlZurZkI_WqRhkDk0Q_TV0n0UT-' }}
+        run: >-
+          flutter build windows --release
+          --dart-define=SUPABASE_URL="$env:SUPABASE_URL"
+          --dart-define=SUPABASE_PUBLISHABLE_KEY="$env:SUPABASE_PUBLISHABLE_KEY"
+
+      - name: Package Windows application
+        shell: pwsh
+        run: |
+          $releaseDirectory = "build/windows/x64/runner/Release"
+          $packageDirectory = "build/windows-package"
+          $archive = "build/FinFlow-Windows-x64.zip"
+
+          New-Item -ItemType Directory -Force -Path $packageDirectory | Out-Null
+          Copy-Item "$releaseDirectory/*" $packageDirectory -Recurse
+          Compress-Archive -Path "$packageDirectory/*" -DestinationPath $archive
+
+          $hash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()
+          "$hash  FinFlow-Windows-x64.zip" |
+            Set-Content "build/FinFlow-Windows-x64.zip.sha256" -NoNewline
+
+      - name: Publish Windows validation package
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinFlow-Windows-x64-${{ github.sha }}
+          path: |
+            build/FinFlow-Windows-x64.zip
+            build/FinFlow-Windows-x64.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
+
   release_android:
     name: Publish signed Android release
     needs: validate
@@ -195,3 +249,40 @@ jobs:
             release/FinFlow.apk.sha256
           if-no-files-found: error
           retention-days: 90
+
+  release_windows:
+    name: Attach Windows 11 package to release
+    needs:
+      - validate_windows
+      - release_android
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.publish_release) ||
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download validated Windows package
+        uses: actions/download-artifact@v4
+        with:
+          name: FinFlow-Windows-x64-${{ github.sha }}
+          path: release
+
+      - name: Attach Windows package to versioned release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(awk '/^version:/ {print $2}' pubspec.yaml)"
+          version_name="${version%%+*}"
+          version_code="${version##*+}"
+          tag="v${version_name}+${version_code}"
+
+          gh release upload "$tag" \
+            release/FinFlow-Windows-x64.zip \
+            release/FinFlow-Windows-x64.zip.sha256 \
+            --clobber

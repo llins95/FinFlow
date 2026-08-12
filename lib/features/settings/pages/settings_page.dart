@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -29,6 +30,8 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = supabaseClient?.auth.currentUser;
     final syncStatus = controller.syncStatus;
+    final supportsWalletImport =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Mais')),
@@ -63,26 +66,32 @@ class SettingsPage extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.notifications_active_outlined),
                   title: const Text('Compras pela Carteira do Google'),
-                  subtitle: const Text(
-                    'No Android, detecta compras para você revisar antes '
-                    'de salvar.',
+                  subtitle: Text(
+                    supportsWalletImport
+                        ? 'Detecta compras para você revisar antes de salvar.'
+                        : 'Disponível somente no Android. No Windows, '
+                              'registre a compra manualmente.',
                   ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    final importedIds = controller.purchaseRecords
-                        .map((record) => record.entry.sourceReference)
-                        .whereType<String>()
-                        .toSet();
-                    unawaited(
-                      Navigator.of(context).push<void>(
-                        MaterialPageRoute(
-                          builder: (context) => NotificationImportPage(
-                            ignoredCandidateIds: importedIds,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                  trailing: supportsWalletImport
+                      ? const Icon(Icons.chevron_right)
+                      : null,
+                  onTap: supportsWalletImport
+                      ? () {
+                          final importedIds = controller.purchaseRecords
+                              .map((record) => record.entry.sourceReference)
+                              .whereType<String>()
+                              .toSet();
+                          unawaited(
+                            Navigator.of(context).push<void>(
+                              MaterialPageRoute(
+                                builder: (context) => NotificationImportPage(
+                                  ignoredCandidateIds: importedIds,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                      : null,
                 ),
                 const Divider(height: 1),
                 const ListTile(
@@ -213,6 +222,8 @@ class _AppUpdateCard extends StatelessWidget {
       builder: (context, _) {
         final installed = controller.installedVersion;
         final available = controller.availableUpdate;
+        final isWindows =
+            !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
         return Card(
           margin: EdgeInsets.zero,
@@ -234,7 +245,7 @@ class _AppUpdateCard extends StatelessWidget {
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           const SizedBox(height: 4),
-                          Text(_statusText(controller)),
+                          Text(_statusText(controller, isWindows: isWindows)),
                         ],
                       ),
                     ),
@@ -266,7 +277,14 @@ class _AppUpdateCard extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 16),
-                if (available != null)
+                if (isWindows)
+                  OutlinedButton.icon(
+                    key: const ValueKey('windows-update-channel'),
+                    onPressed: null,
+                    icon: const Icon(FluentIcons.desktop_24_regular),
+                    label: const Text('Atualização pelo pacote do Windows'),
+                  )
+                else if (available != null)
                   FilledButton.icon(
                     onPressed: controller.isBusy
                         ? null
@@ -288,11 +306,14 @@ class _AppUpdateCard extends StatelessWidget {
                     label: const Text('Verificar atualizações'),
                   ),
                 const SizedBox(height: 8),
-                const Text(
-                  'O Android sempre pedirá sua confirmação antes de '
-                  'instalar. O APK é validado por SHA-256.',
+                Text(
+                  isWindows
+                      ? 'As novas versões do Windows serão distribuídas em '
+                            'um pacote .zip validado por SHA-256.'
+                      : 'O Android sempre pedirá sua confirmação antes de '
+                            'instalar. O APK é validado por SHA-256.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: 12),
                 ),
               ],
             ),
@@ -302,11 +323,16 @@ class _AppUpdateCard extends StatelessWidget {
     );
   }
 
-  String _statusText(AppUpdateController controller) {
+  String _statusText(
+    AppUpdateController controller, {
+    required bool isWindows,
+  }) {
     return switch (controller.status) {
       AppUpdateStatus.idle => 'Verifique se existe uma nova versão.',
       AppUpdateStatus.unsupported =>
-        'Atualização dentro do app disponível apenas no Android.',
+        isWindows
+            ? 'No Windows, instale a nova versão pelo pacote da release.'
+            : 'Atualização dentro do app disponível apenas no Android.',
       AppUpdateStatus.checking => 'Verificando no GitHub...',
       AppUpdateStatus.upToDate => 'Você já está na versão mais recente.',
       AppUpdateStatus.available => 'Uma nova versão está disponível.',

@@ -129,10 +129,16 @@ class _NavigationPageState extends State<NavigationPage>
                   onDestinationSelected: _selectPage,
                   leading: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: CircleAvatar(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                      child: const Icon(Icons.account_balance_wallet),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'assets/branding/finflow-icon-256.png',
+                        key: const ValueKey('desktop-finflow-icon'),
+                        width: 44,
+                        height: 44,
+                        filterQuality: FilterQuality.high,
+                        semanticLabel: 'FinFlow',
+                      ),
                     ),
                   ),
                   destinations: items

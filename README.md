@@ -11,6 +11,10 @@ Windows.
 - compras à vista ou parceladas usando os cartões cadastrados;
 - parcelas somadas automaticamente à fatura do mês de vencimento;
 - busca por compra ou mês com a sequência completa de parcelas;
+- pagamentos mensais de despesas e faturas, sem alterar o valor cadastrado;
+- exclusão de compras, receitas e saldo anterior;
+- lembretes de fechamento e vencimento no Android;
+- dashboard de valores pagos, pendentes e próximos vencimentos;
 - Microsoft Fluent Design com temas claro, escuro e padrão do sistema;
 - detecção opcional de compras da Carteira do Google no Android;
 - verificação, download e instalação de atualizações no Android;
@@ -24,6 +28,23 @@ Windows.
 - histórico e criação do próximo mês com itens recorrentes;
 - migração automática das compras antigas salvas no Hive;
 - dados protegidos por RLS e isolados por usuário.
+
+## Identidade do aplicativo
+
+O master do ícone está em
+`assets/branding/finflow-icon-master-v2.png`. O símbolo combina a letra
+**F** com três barras de crescimento e usa o gradiente azul, ciano e verde da
+identidade do FinFlow.
+
+Para regenerar todos os tamanhos do Android e o `.ico` multirresolução do
+Windows:
+
+```bash
+bash tool/generate_app_icons.sh
+```
+
+O script requer ImageMagick e mantém os assets das duas plataformas derivados
+do mesmo master.
 
 ## Configurar o Supabase
 
@@ -85,10 +106,28 @@ As releases são assinadas sempre com o mesmo keystore, mantido somente nos
 Repository Secrets. Os nomes e o procedimento estão em
 `docs/android-signing.md`.
 
+## Windows 11
+
+O executável usa o nome `FinFlow.exe`, o novo ícone e uma janela inicial de
+1280×800, centralizada, com tamanho mínimo de 900×640. Em telas largas, a
+navegação inferior muda automaticamente para uma barra lateral.
+
+Para compilar no Windows com Visual Studio e o workload **Desenvolvimento para
+desktop com C++**:
+
+```powershell
+flutter build windows --release --dart-define=SUPABASE_URL="https://SEU-PROJETO.supabase.co" --dart-define=SUPABASE_PUBLISHABLE_KEY="SUA-CHAVE-PUBLICA"
+```
+
+O GitHub Actions também prepara `FinFlow-Windows-x64.zip` e seu SHA-256. Nas
+próximas publicações, o pacote será anexado à mesma release do APK Android.
+
 ## Validar
 
 ```bash
 flutter analyze
 flutter test
 flutter build apk --debug
+# Execute em um ambiente Windows:
+flutter build windows --release
 ```
