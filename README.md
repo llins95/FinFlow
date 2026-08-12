@@ -17,7 +17,7 @@ Windows.
 - dashboard de valores pagos, pendentes e próximos vencimentos;
 - Microsoft Fluent Design com temas claro, escuro e padrão do sistema;
 - detecção opcional de compras da Carteira do Google no Android;
-- verificação, download e instalação de atualizações no Android;
+- verificação, download e instalação de atualizações no Android e Windows;
 - calendário de parcelas com rateio exato em centavos;
 - resumo com total a pagar, total disponível e sobra/falta;
 - valores monetários armazenados em centavos inteiros;
@@ -120,7 +120,16 @@ flutter build windows --release --dart-define=SUPABASE_URL="https://SEU-PROJETO.
 ```
 
 O GitHub Actions também prepara `FinFlow-Windows-x64.zip` e seu SHA-256. Nas
-próximas publicações, o pacote será anexado à mesma release do APK Android.
+publicações, o pacote é anexado à mesma release do APK Android e inclui os
+runtimes do Visual C++ necessários para funcionar em outro computador.
+
+Em **Mais > Atualização do aplicativo**, o Windows verifica a release mais
+recente, baixa o ZIP, confere o SHA-256, fecha o FinFlow, substitui os arquivos
+e abre o aplicativo novamente. A pasta onde o ZIP foi extraído precisa permitir
+gravação pelo usuário.
+
+O roteiro do primeiro teste e a comparação de funcionalidades estão em
+`docs/windows-testing.md`.
 
 ## Validar
 

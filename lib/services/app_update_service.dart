@@ -38,12 +38,13 @@ class AppUpdateService implements AppUpdateGateway {
   );
   static const int _maxMetadataBytes = 1024 * 1024;
   static const int _maxApkBytes = 250 * 1024 * 1024;
+  static const int _maxWindowsPackageBytes = 500 * 1024 * 1024;
 
   final HttpClient _httpClient;
   final Uri releasesApi;
 
   @override
-  Future<bool> isSupported() async => Platform.isAndroid;
+  Future<bool> isSupported() async => Platform.isAndroid || Platform.isWindows;
 
   @override
   Future<InstalledAppVersion> getCurrentVersion() async {
@@ -51,7 +52,7 @@ class AppUpdateService implements AppUpdateGateway {
       'getCurrentVersion',
     );
     if (raw == null) {
-      throw StateError('O Android não informou a versão instalada.');
+      throw StateError('O sistema não informou a versão instalada.');
     }
     return InstalledAppVersion.fromMap(raw);
   }
@@ -81,6 +82,9 @@ class AppUpdateService implements AppUpdateGateway {
 
   @override
   Future<bool> canRequestPackageInstalls() async {
+    if (Platform.isWindows) {
+      return true;
+    }
     return await _channel.invokeMethod<bool>(
           'canRequestPackageInstalls',
         ) ??
@@ -89,11 +93,19 @@ class AppUpdateService implements AppUpdateGateway {
 
   @override
   Future<void> openInstallPermissionSettings() async {
+    if (Platform.isWindows) {
+      return;
+    }
     await _channel.invokeMethod<void>('openInstallPermissionSettings');
   }
 
   @override
   Future<void> downloadAndInstall(AppUpdateInfo update) async {
+    if (Platform.isWindows) {
+      await _downloadAndApplyWindows(update);
+      return;
+    }
+
     final expectedChecksum = await _fetchChecksum(update.checksumUri);
     final temporaryDirectory = await getTemporaryDirectory();
     final updateDirectory = Directory(
@@ -107,7 +119,12 @@ class AppUpdateService implements AppUpdateGateway {
     );
 
     if (!await _matchesChecksum(apk, expectedChecksum)) {
-      await _downloadApk(update.apkUri, apk);
+      await _downloadPackage(
+        update.apkUri,
+        apk,
+        maxBytes: _maxApkBytes,
+        description: 'APK',
+      );
       if (!await _matchesChecksum(apk, expectedChecksum)) {
         await apk.delete().catchError((_) => apk);
         throw const FormatException(
@@ -122,6 +139,110 @@ class AppUpdateService implements AppUpdateGateway {
     );
     if (opened != true) {
       throw StateError('O instalador do Android não pôde ser aberto.');
+    }
+  }
+
+  Future<void> _downloadAndApplyWindows(AppUpdateInfo update) async {
+    final packageUri = update.windowsPackageUri;
+    final checksumUri = update.windowsChecksumUri;
+    if (packageUri == null || checksumUri == null) {
+      throw const FormatException(
+        'A release não contém o pacote de atualização do Windows.',
+      );
+    }
+
+    final expectedChecksum = await _fetchChecksum(checksumUri);
+    final temporaryDirectory = await getTemporaryDirectory();
+    final updateDirectory = Directory(
+      '${temporaryDirectory.path}${Platform.pathSeparator}updates',
+    );
+    await updateDirectory.create(recursive: true);
+
+    final archive = File(
+      '${updateDirectory.path}${Platform.pathSeparator}'
+      'FinFlow-Windows-${update.versionCode}.zip',
+    );
+    if (!await _matchesChecksum(archive, expectedChecksum)) {
+      await _downloadPackage(
+        packageUri,
+        archive,
+        maxBytes: _maxWindowsPackageBytes,
+        description: 'pacote do Windows',
+      );
+      if (!await _matchesChecksum(archive, expectedChecksum)) {
+        await archive.delete().catchError((_) => archive);
+        throw const FormatException(
+          'O pacote do Windows não passou na validação SHA-256.',
+        );
+      }
+    }
+
+    final executable = File(Platform.resolvedExecutable);
+    final installDirectory = executable.parent;
+    await _verifyInstallDirectoryIsWritable(installDirectory);
+
+    final script = File(
+      '${updateDirectory.path}${Platform.pathSeparator}'
+      'FinFlow-Updater-${update.versionCode}.ps1',
+    );
+    final log = File(
+      '${updateDirectory.path}${Platform.pathSeparator}'
+      'FinFlow-Updater-${update.versionCode}.log',
+    );
+    await script.writeAsString(_windowsUpdaterScript, flush: true);
+
+    final systemRoot = Platform.environment['SystemRoot'] ?? r'C:\Windows';
+    final powerShell =
+        '$systemRoot${Platform.pathSeparator}System32'
+        '${Platform.pathSeparator}WindowsPowerShell'
+        '${Platform.pathSeparator}v1.0'
+        '${Platform.pathSeparator}powershell.exe';
+
+    await Process.start(
+      powerShell,
+      [
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        script.path,
+        '-ProcessId',
+        pid.toString(),
+        '-ArchivePath',
+        archive.path,
+        '-InstallDirectory',
+        installDirectory.path,
+        '-ExecutablePath',
+        executable.path,
+        '-LogPath',
+        log.path,
+        '-ScriptPath',
+        script.path,
+      ],
+      workingDirectory: installDirectory.path,
+      mode: ProcessStartMode.detached,
+    );
+
+    Timer(const Duration(milliseconds: 750), () => exit(0));
+  }
+
+  Future<void> _verifyInstallDirectoryIsWritable(Directory directory) async {
+    final probe = File(
+      '${directory.path}${Platform.pathSeparator}.finflow-update-write-test',
+    );
+    try {
+      await probe.writeAsString('FinFlow');
+    } on FileSystemException {
+      throw const FileSystemException(
+        'O FinFlow não tem permissão para atualizar esta pasta. '
+        'Mova o aplicativo para uma pasta do seu usuário e tente novamente.',
+      );
+    } finally {
+      if (await probe.exists()) {
+        await probe.delete();
+      }
     }
   }
 
@@ -142,7 +263,12 @@ class AppUpdateService implements AppUpdateGateway {
     return match.group(0)!.toLowerCase();
   }
 
-  Future<void> _downloadApk(Uri uri, File destination) async {
+  Future<void> _downloadPackage(
+    Uri uri,
+    File destination, {
+    required int maxBytes,
+    required String description,
+  }) async {
     final partial = File('${destination.path}.part');
     if (await partial.exists()) {
       await partial.delete();
@@ -152,7 +278,7 @@ class AppUpdateService implements AppUpdateGateway {
     if (response.statusCode != HttpStatus.ok) {
       await response.drain<void>();
       throw HttpException(
-        'Não foi possível baixar o APK da atualização.',
+        'Não foi possível baixar o $description da atualização.',
         uri: uri,
       );
     }
@@ -163,9 +289,9 @@ class AppUpdateService implements AppUpdateGateway {
       var receivedBytes = 0;
       await for (final chunk in response) {
         receivedBytes += chunk.length;
-        if (receivedBytes > _maxApkBytes) {
-          throw const FileSystemException(
-            'O APK excede o tamanho máximo permitido.',
+        if (receivedBytes > maxBytes) {
+          throw FileSystemException(
+            'O $description excede o tamanho máximo permitido.',
           );
         }
         sink.add(chunk);
@@ -199,7 +325,7 @@ class AppUpdateService implements AppUpdateGateway {
     final request = await _httpClient.getUrl(uri).timeout(
       const Duration(seconds: 20),
     );
-    request.headers.set(HttpHeaders.userAgentHeader, 'FinFlow-Android-Updater');
+    request.headers.set(HttpHeaders.userAgentHeader, 'FinFlow-App-Updater');
     if (acceptJson) {
       request.headers.set(
         HttpHeaders.acceptHeader,
@@ -223,4 +349,48 @@ class AppUpdateService implements AppUpdateGateway {
     }
     return utf8.decode(bytes);
   }
+
+  static const String _windowsUpdaterScript = r'''
+param(
+  [Parameter(Mandatory = $true)][int]$ProcessId,
+  [Parameter(Mandatory = $true)][string]$ArchivePath,
+  [Parameter(Mandatory = $true)][string]$InstallDirectory,
+  [Parameter(Mandatory = $true)][string]$ExecutablePath,
+  [Parameter(Mandatory = $true)][string]$LogPath,
+  [Parameter(Mandatory = $true)][string]$ScriptPath
+)
+
+$ErrorActionPreference = 'Stop'
+$staging = Join-Path ([System.IO.Path]::GetTempPath()) "FinFlow-Update-$ProcessId"
+
+try {
+  if (Test-Path -LiteralPath $staging) {
+    Remove-Item -LiteralPath $staging -Recurse -Force
+  }
+  New-Item -ItemType Directory -Path $staging -Force | Out-Null
+  Expand-Archive -LiteralPath $ArchivePath -DestinationPath $staging -Force
+
+  $newExecutable = Join-Path $staging 'FinFlow.exe'
+  if (-not (Test-Path -LiteralPath $newExecutable -PathType Leaf)) {
+    throw 'O pacote baixado não contém FinFlow.exe.'
+  }
+
+  Wait-Process -Id $ProcessId -ErrorAction SilentlyContinue
+  Get-ChildItem -LiteralPath $staging -Force | ForEach-Object {
+    Copy-Item -LiteralPath $_.FullName -Destination $InstallDirectory -Recurse -Force
+  }
+
+  Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $ArchivePath -Force -ErrorAction SilentlyContinue
+  Start-Process -FilePath $ExecutablePath -WorkingDirectory $InstallDirectory
+} catch {
+  $_ | Out-String | Set-Content -LiteralPath $LogPath -Encoding UTF8
+  if (Test-Path -LiteralPath $ExecutablePath -PathType Leaf) {
+    Start-Process -FilePath $ExecutablePath -WorkingDirectory $InstallDirectory
+  }
+  exit 1
+} finally {
+  Remove-Item -LiteralPath $ScriptPath -Force -ErrorAction SilentlyContinue
+}
+''';
 }

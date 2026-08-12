@@ -24,6 +24,8 @@ class AppUpdateInfo {
     required this.versionCode,
     required this.apkUri,
     required this.checksumUri,
+    required this.windowsPackageUri,
+    required this.windowsChecksumUri,
     required this.releaseNotes,
   });
 
@@ -31,6 +33,8 @@ class AppUpdateInfo {
   final int versionCode;
   final Uri apkUri;
   final Uri checksumUri;
+  final Uri? windowsPackageUri;
+  final Uri? windowsChecksumUri;
   final String releaseNotes;
 
   bool isNewerThan(InstalledAppVersion installed) =>
@@ -83,6 +87,8 @@ class AppUpdateInfo {
       versionCode: int.parse(match.group(2)!),
       apkUri: apkUri,
       checksumUri: checksumUri,
+      windowsPackageUri: findAsset('FinFlow-Windows-x64.zip'),
+      windowsChecksumUri: findAsset('FinFlow-Windows-x64.zip.sha256'),
       releaseNotes: (release['body'] as String?)?.trim() ?? '',
     );
   }

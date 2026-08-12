@@ -1,0 +1,56 @@
+# Teste do FinFlow no Windows 11
+
+## O que é necessário
+
+- Windows 11 x64 atualizado;
+- acesso à internet para login, sincronização e atualização;
+- uma pasta gravável pelo usuário, como
+  `C:\Users\SEU_USUARIO\Apps\FinFlow`;
+- a mesma conta usada no Android, caso queira validar a sincronização.
+
+Visual Studio, Flutter e o Visual C++ Redistributable não são necessários para
+testar o pacote publicado. O ZIP já contém o executável, os arquivos do Flutter
+e os runtimes `msvcp140.dll`, `vcruntime140.dll` e `vcruntime140_1.dll`.
+
+## Primeiro teste
+
+1. Baixe `FinFlow-Windows-x64.zip` na release mais recente.
+2. Confira o arquivo `FinFlow-Windows-x64.zip.sha256`, se desejar validar
+   manualmente o download.
+3. Extraia todo o ZIP para uma pasta do seu usuário. Não execute o programa
+   diretamente de dentro do ZIP.
+4. Abra `FinFlow.exe`.
+5. Se o SmartScreen aparecer, confira que o arquivo veio da release oficial do
+   projeto antes de escolher **Mais informações > Executar assim mesmo**.
+6. Entre com a mesma conta do Android e confira os meses, cartões, compras,
+   pagamentos e histórico.
+7. Abra **Mais > Atualização do aplicativo > Verificar atualizações** para
+   validar o canal de atualização do Windows.
+
+## Funcionalidades por plataforma
+
+| Funcionalidade | Android | Windows 11 |
+| --- | --- | --- |
+| Dashboard, meses, receitas e despesas | Sim | Sim |
+| Cartões, faturas e compras parceladas | Sim | Sim |
+| Pagamentos, exclusões, busca e histórico | Sim | Sim |
+| Temas Fluent claro, escuro e sistema | Sim | Sim |
+| Login, Hive, fila offline e Supabase Realtime | Sim | Sim |
+| Verificação, download e aplicação de atualização | APK + SHA-256 | ZIP + SHA-256 e reinício automático |
+| Captura de compras da Carteira Google | Sim | Não se aplica |
+| Lembretes locais de fechamento e vencimento | Sim | Ainda não |
+
+As duas limitações finais não afetam os dados sincronizados. Uma compra
+confirmada no Android aparece normalmente no Windows, e todos os lançamentos
+financeiros podem ser cadastrados manualmente nas duas plataformas.
+
+## Checklist recomendado
+
+- abrir, redimensionar e maximizar a janela;
+- conferir o novo ícone no Explorer, barra de tarefas e janela;
+- validar login e sincronização nos dois sentidos;
+- criar, editar, pagar e excluir lançamentos;
+- cadastrar uma compra parcelada e conferir as faturas futuras;
+- testar os três temas;
+- fechar e abrir novamente para conferir a persistência local;
+- testar o botão de atualização quando uma versão posterior estiver publicada.

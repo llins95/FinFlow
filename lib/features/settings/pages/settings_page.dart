@@ -277,28 +277,33 @@ class _AppUpdateCard extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 16),
-                if (isWindows)
-                  OutlinedButton.icon(
-                    key: const ValueKey('windows-update-channel'),
-                    onPressed: null,
-                    icon: const Icon(FluentIcons.desktop_24_regular),
-                    label: const Text('Atualização pelo pacote do Windows'),
-                  )
-                else if (available != null)
+                if (available != null)
                   FilledButton.icon(
+                    key: ValueKey(
+                      isWindows
+                          ? 'windows-update-channel'
+                          : 'android-update-channel',
+                    ),
                     onPressed: controller.isBusy
                         ? null
                         : () => unawaited(controller.downloadAndInstall()),
                     icon: const Icon(Icons.download),
                     label: Text(
-                      controller.status ==
-                              AppUpdateStatus.waitingForInstallPermission
+                      isWindows
+                          ? 'Baixar, atualizar e reiniciar'
+                          : controller.status ==
+                                AppUpdateStatus.waitingForInstallPermission
                           ? 'Autorizar instalação'
                           : 'Baixar e instalar',
                     ),
                   )
                 else
                   OutlinedButton.icon(
+                    key: ValueKey(
+                      isWindows
+                          ? 'windows-update-channel'
+                          : 'android-update-channel',
+                    ),
                     onPressed: controller.isBusy
                         ? null
                         : () => unawaited(controller.checkForUpdates()),
@@ -308,8 +313,8 @@ class _AppUpdateCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   isWindows
-                      ? 'As novas versões do Windows serão distribuídas em '
-                            'um pacote .zip validado por SHA-256.'
+                      ? 'O pacote .zip é validado por SHA-256. O FinFlow '
+                            'fecha, substitui os arquivos e abre novamente.'
                       : 'O Android sempre pedirá sua confirmação antes de '
                             'instalar. O APK é validado por SHA-256.',
                   textAlign: TextAlign.center,
@@ -330,17 +335,19 @@ class _AppUpdateCard extends StatelessWidget {
     return switch (controller.status) {
       AppUpdateStatus.idle => 'Verifique se existe uma nova versão.',
       AppUpdateStatus.unsupported =>
-        isWindows
-            ? 'No Windows, instale a nova versão pelo pacote da release.'
-            : 'Atualização dentro do app disponível apenas no Android.',
+        'Atualização dentro do app indisponível nesta plataforma.',
       AppUpdateStatus.checking => 'Verificando no GitHub...',
       AppUpdateStatus.upToDate => 'Você já está na versão mais recente.',
       AppUpdateStatus.available => 'Uma nova versão está disponível.',
       AppUpdateStatus.waitingForInstallPermission =>
         'Permita que o FinFlow instale apps e volte para continuar.',
-      AppUpdateStatus.downloading => 'Baixando e validando o APK...',
+      AppUpdateStatus.downloading => isWindows
+          ? 'Baixando e validando o pacote do Windows...'
+          : 'Baixando e validando o APK...',
       AppUpdateStatus.openingInstaller =>
-        'Confirme a atualização na tela do Android.',
+        isWindows
+            ? 'Reiniciando o FinFlow para concluir a atualização...'
+            : 'Confirme a atualização na tela do Android.',
       AppUpdateStatus.error => 'Não foi possível atualizar agora.',
     };
   }

@@ -13,6 +13,14 @@ void main() {
       'github.com',
       '/example/FinFlow.apk.sha256',
     ),
+    windowsPackageUri: Uri.https(
+      'github.com',
+      '/example/FinFlow-Windows-x64.zip',
+    ),
+    windowsChecksumUri: Uri.https(
+      'github.com',
+      '/example/FinFlow-Windows-x64.zip.sha256',
+    ),
     releaseNotes: 'Versão de teste.',
   );
 
@@ -30,6 +38,16 @@ void main() {
           'browser_download_url':
               'https://github.com/demo/FinFlow.apk.sha256',
         },
+        {
+          'name': 'FinFlow-Windows-x64.zip',
+          'browser_download_url':
+              'https://github.com/demo/FinFlow-Windows-x64.zip',
+        },
+        {
+          'name': 'FinFlow-Windows-x64.zip.sha256',
+          'browser_download_url':
+              'https://github.com/demo/FinFlow-Windows-x64.zip.sha256',
+        },
       ],
     });
 
@@ -37,6 +55,34 @@ void main() {
     expect(parsed.versionCode, 2);
     expect(parsed.releaseNotes, 'Novidades');
     expect(parsed.isNewerThan(installed), isTrue);
+    expect(
+      parsed.windowsPackageUri,
+      Uri.https('github.com', '/demo/FinFlow-Windows-x64.zip'),
+    );
+    expect(
+      parsed.windowsChecksumUri,
+      Uri.https('github.com', '/demo/FinFlow-Windows-x64.zip.sha256'),
+    );
+  });
+
+  test('aceita release Android anterior sem pacote do Windows', () {
+    final parsed = AppUpdateInfo.fromGitHubRelease({
+      'tag_name': 'v1.3.0+4',
+      'assets': [
+        {
+          'name': 'FinFlow.apk',
+          'browser_download_url': 'https://github.com/demo/FinFlow.apk',
+        },
+        {
+          'name': 'FinFlow.apk.sha256',
+          'browser_download_url':
+              'https://github.com/demo/FinFlow.apk.sha256',
+        },
+      ],
+    });
+
+    expect(parsed.windowsPackageUri, isNull);
+    expect(parsed.windowsChecksumUri, isNull);
   });
 
   test('rejeita release sem APK ou checksum', () {

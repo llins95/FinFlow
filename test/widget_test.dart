@@ -82,6 +82,11 @@ void main() {
       find.byKey(const ValueKey('windows-update-channel')),
       findsOneWidget,
     );
+    final updateButton = tester.widget<OutlinedButton>(
+      find.byKey(const ValueKey('windows-update-channel')),
+    );
+    expect(updateButton.onPressed, isNotNull);
+    expect(find.text('Verificar atualizações'), findsOneWidget);
     expect(
       find.textContaining('Disponível somente no Android'),
       findsOneWidget,

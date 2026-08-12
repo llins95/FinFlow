@@ -1,5 +1,8 @@
 #include "flutter_window.h"
 
+#include <flutter/standard_method_codec.h>
+
+#include <cstdint>
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
@@ -25,6 +28,29 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+
+  app_update_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(),
+          "com.finflow/app_updates",
+          &flutter::StandardMethodCodec::GetInstance());
+  app_update_channel_->SetMethodCallHandler(
+      [](const flutter::MethodCall<flutter::EncodableValue>& call,
+         std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
+             result) {
+        if (call.method_name() != "getCurrentVersion") {
+          result->NotImplemented();
+          return;
+        }
+
+        flutter::EncodableMap version;
+        version[flutter::EncodableValue("versionName")] =
+            flutter::EncodableValue(FLUTTER_VERSION);
+        version[flutter::EncodableValue("versionCode")] =
+            flutter::EncodableValue(
+                static_cast<int32_t>(FLUTTER_VERSION_BUILD));
+        result->Success(flutter::EncodableValue(version));
+      });
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -40,6 +66,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  app_update_channel_.reset();
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }

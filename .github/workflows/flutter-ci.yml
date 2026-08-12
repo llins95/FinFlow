@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       publish_release:
-        description: Publicar APK Android assinado
+        description: Publicar Android assinado e pacote Windows
         required: true
         default: false
         type: boolean
@@ -108,6 +108,26 @@ jobs:
 
           New-Item -ItemType Directory -Force -Path $packageDirectory | Out-Null
           Copy-Item "$releaseDirectory/*" $packageDirectory -Recurse
+
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $visualStudio = & $vswhere -latest -products * -property installationPath
+          $redistRoot = Join-Path $visualStudio "VC\Redist\MSVC"
+          $redistVersion = Get-ChildItem $redistRoot -Directory |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+          $crtDirectory = Join-Path $redistVersion.FullName "x64\Microsoft.VC143.CRT"
+
+          foreach ($runtime in @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")) {
+            $runtimePath = Join-Path $crtDirectory $runtime
+            if (-not (Test-Path $runtimePath)) {
+              throw "Runtime do Visual C++ não encontrado: $runtime"
+            }
+            Copy-Item $runtimePath $packageDirectory
+          }
+
+          if (-not (Test-Path "$packageDirectory/FinFlow.exe")) {
+            throw "FinFlow.exe não foi encontrado no pacote do Windows."
+          }
           Compress-Archive -Path "$packageDirectory/*" -DestinationPath $archive
 
           $hash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()
@@ -126,7 +146,9 @@ jobs:
 
   release_android:
     name: Publish signed Android release
-    needs: validate
+    needs:
+      - validate
+      - validate_windows
     if: >-
       (github.event_name == 'workflow_dispatch' && inputs.publish_release) ||
       (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]'))
@@ -210,8 +232,10 @@ jobs:
           printf '%s\n' \
             "FinFlow ${version_name} (${version_code})" \
             "" \
+            "Nova identidade visual aplicada ao Android e Windows." \
             "APK Android assinado e validado automaticamente." \
-            "A instalação exige confirmação do Android." \
+            "Pacote Windows 11 x64 com atualização dentro do aplicativo." \
+            "Android e Windows validam os downloads por SHA-256." \
             > release-notes.md
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
@@ -237,7 +261,7 @@ jobs:
             release/FinFlow.apk \
             release/FinFlow.apk.sha256 \
             --target "$GITHUB_SHA" \
-            --title "FinFlow $RELEASE_VERSION (teste)" \
+            --title "FinFlow $RELEASE_VERSION" \
             --notes-file release/release-notes.md
 
       - name: Publish signed APK artifact
