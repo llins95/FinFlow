@@ -12,6 +12,7 @@ class FinancialEntrySection extends StatelessWidget {
     required this.onEdit,
     this.onAdd,
     this.onDelete,
+    this.onTogglePaid,
     this.amountInCentsFor,
   });
 
@@ -21,16 +22,21 @@ class FinancialEntrySection extends StatelessWidget {
   final ValueChanged<FinancialEntry> onEdit;
   final VoidCallback? onAdd;
   final ValueChanged<FinancialEntry>? onDelete;
+  final ValueChanged<FinancialEntry>? onTogglePaid;
   final int Function(FinancialEntry entry)? amountInCentsFor;
 
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
-    final total = entries.fold(
-      0,
-      (value, entry) =>
-          value + (amountInCentsFor?.call(entry) ?? entry.amountInCents),
-    );
+    final total = entries
+        .where((entry) {
+          return onTogglePaid == null || !entry.isPaid;
+        })
+        .fold(
+          0,
+          (value, entry) =>
+              value + (amountInCentsFor?.call(entry) ?? entry.amountInCents),
+        );
 
     return Card(
       margin: EdgeInsets.zero,
@@ -75,38 +81,61 @@ class FinancialEntrySection extends StatelessWidget {
                 child: Text('Nenhum lançamento neste grupo.'),
               )
             else
-              ...entries.map(
-                (entry) => ListTile(
+              ...entries.map((entry) {
+                final details = _subtitle(entry, currency);
+
+                return ListTile(
                   contentPadding: const EdgeInsets.only(left: 4, right: 0),
-                  title: Text(entry.name),
-                  subtitle: _subtitle(entry, currency),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  title: Text(
+                    entry.name,
+                    style: entry.isPaid
+                        ? TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                            decoration: TextDecoration.lineThrough,
+                          )
+                        : null,
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        currency.format(
-                          (amountInCentsFor?.call(entry) ??
-                                  entry.amountInCents) /
-                              100,
-                        ),
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ?details,
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (onTogglePaid case final togglePaid?)
+                            _PaidButton(
+                              entry: entry,
+                              onPressed: () => togglePaid(entry),
+                            ),
+                          IconButton(
+                            onPressed: () => onEdit(entry),
+                            tooltip: 'Editar ${entry.name}',
+                            icon: const Icon(Icons.edit_outlined),
+                          ),
+                          if (onDelete != null)
+                            IconButton(
+                              onPressed: () => onDelete!(entry),
+                              tooltip: 'Excluir ${entry.name}',
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                        ],
                       ),
-                      IconButton(
-                        onPressed: () => onEdit(entry),
-                        tooltip: 'Editar ${entry.name}',
-                        icon: const Icon(Icons.edit_outlined),
-                      ),
-                      if (onDelete != null && entry.id.startsWith('custom-'))
-                        IconButton(
-                          onPressed: () => onDelete!(entry),
-                          tooltip: 'Excluir ${entry.name}',
-                          icon: const Icon(Icons.delete_outline),
-                        ),
                     ],
                   ),
+                  trailing: Text(
+                    currency.format(
+                      (amountInCentsFor?.call(entry) ?? entry.amountInCents) /
+                          100,
+                    ),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
                   onTap: () => onEdit(entry),
-                ),
-              ),
+                );
+              }),
           ],
         ),
       ),
@@ -135,5 +164,43 @@ class FinancialEntrySection extends StatelessWidget {
     }
 
     return details.isEmpty ? null : Text(details.join(' • '));
+  }
+}
+
+class _PaidButton extends StatelessWidget {
+  const _PaidButton({required this.entry, required this.onPressed});
+
+  final FinancialEntry entry;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final paidColor = Theme.of(context).brightness == Brightness.dark
+        ? Colors.green.shade200
+        : Colors.green.shade800;
+
+    return Tooltip(
+      message: entry.isPaid ? 'Marcar como pendente' : 'Marcar como pago',
+      child: FilledButton.tonalIcon(
+        key: ValueKey('paid-toggle-${entry.id}'),
+        onPressed: onPressed,
+        icon: Icon(
+          entry.isPaid ? Icons.check_circle : Icons.circle_outlined,
+          size: 18,
+        ),
+        label: const Text('PAGO'),
+        style: FilledButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          backgroundColor: entry.isPaid
+              ? paidColor.withValues(alpha: 0.18)
+              : colorScheme.surfaceContainerHighest,
+          foregroundColor: entry.isPaid
+              ? paidColor
+              : colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
   }
 }

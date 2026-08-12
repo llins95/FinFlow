@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../controllers/financial_month_controller.dart';
 import '../../../models/financial_month.dart';
 import '../../../models/purchase_record.dart';
+import '../widgets/purchase_delete_confirmation.dart';
 import 'edit_purchase_page.dart';
 
 class HistoryPage extends StatelessWidget {
@@ -69,9 +70,9 @@ class _FinancialMonthHistory extends StatelessWidget {
           children: [
             Text(
               'Resumo mensal',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
             Text(
@@ -84,6 +85,10 @@ class _FinancialMonthHistory extends StatelessWidget {
             for (final month in months)
               _FinancialMonthCard(
                 month: month,
+                totalPendingInCents: controller.totalPendingInCentsForMonth(
+                  month,
+                ),
+                balanceInCents: controller.balanceInCentsForMonth(month),
                 isCurrent:
                     month.storageKey == controller.currentMonth.storageKey,
                 onOpen: () => onOpenMonth(month),
@@ -98,11 +103,15 @@ class _FinancialMonthHistory extends StatelessWidget {
 class _FinancialMonthCard extends StatelessWidget {
   const _FinancialMonthCard({
     required this.month,
+    required this.totalPendingInCents,
+    required this.balanceInCents,
     required this.isCurrent,
     required this.onOpen,
   });
 
   final FinancialMonth month;
+  final int totalPendingInCents;
+  final int balanceInCents;
   final bool isCurrent;
   final Future<void> Function() onOpen;
 
@@ -113,7 +122,7 @@ class _FinancialMonthCard extends StatelessWidget {
     final monthLabel = toBeginningOfSentenceCase(
       monthFormatter.format(month.date),
     );
-    final hasSurplus = month.balanceInCents >= 0;
+    final hasSurplus = balanceInCents >= 0;
     final balanceColor = hasSurplus ? Colors.green : Colors.redAccent;
 
     return Card(
@@ -125,9 +134,7 @@ class _FinancialMonthCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  child: const Icon(Icons.calendar_month_outlined),
-                ),
+                CircleAvatar(child: const Icon(Icons.calendar_month_outlined)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -142,9 +149,7 @@ class _FinancialMonthCard extends StatelessWidget {
                       Text(
                         isCurrent ? 'Mês aberto no momento' : 'Mês salvo',
                         style: TextStyle(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurfaceVariant,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -183,21 +188,17 @@ class _FinancialMonthCard extends StatelessWidget {
                     _HistoryValue(
                       width: width,
                       label: 'A pagar',
-                      value: currency.format(month.totalDebtInCents / 100),
+                      value: currency.format(totalPendingInCents / 100),
                     ),
                     _HistoryValue(
                       width: width,
                       label: 'Disponível',
-                      value: currency.format(
-                        month.totalAvailableInCents / 100,
-                      ),
+                      value: currency.format(month.totalAvailableInCents / 100),
                     ),
                     _HistoryValue(
                       width: width,
                       label: hasSurplus ? 'Sobra' : 'Falta',
-                      value: currency.format(
-                        month.balanceInCents.abs() / 100,
-                      ),
+                      value: currency.format(balanceInCents.abs() / 100),
                       color: balanceColor,
                     ),
                   ],
@@ -309,24 +310,27 @@ class _PurchaseHistoryPage extends StatelessWidget {
     BuildContext context,
     PurchaseRecord record,
   ) async {
-    final result = await Navigator.push<bool>(
+    final result = await Navigator.push<PurchaseEditResult>(
       context,
       MaterialPageRoute(
         builder: (context) {
-          return EditPurchasePage(
-            controller: controller,
-            record: record,
-          );
+          return EditPurchasePage(controller: controller, record: record);
         },
       ),
     );
 
-    if (result != true || !context.mounted) {
+    if (result == null || !context.mounted) {
       return;
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Compra atualizada com sucesso!')),
+      SnackBar(
+        content: Text(
+          result == PurchaseEditResult.deleted
+              ? 'Compra "${record.entry.name}" excluída.'
+              : 'Compra atualizada com sucesso!',
+        ),
+      ),
     );
   }
 
@@ -334,71 +338,7 @@ class _PurchaseHistoryPage extends StatelessWidget {
     BuildContext context,
     PurchaseRecord record,
   ) async {
-    final purchase = record.entry;
-    final cardName = purchase.relatedCardName ?? 'Cartão não encontrado';
-
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Excluir compra?'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Esta ação removerá a compra do histórico.'),
-              const SizedBox(height: 20),
-              Text(
-                purchase.name,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                currencyFormatter.format(purchase.amountInCents / 100),
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text('Cartão: $cardName'),
-              const SizedBox(height: 4),
-              Text('Data: ${dateFormatter.format(record.purchaseDate)}'),
-              const SizedBox(height: 4),
-              Text(
-                (purchase.installments ?? 1) == 1
-                    ? 'Pagamento à vista'
-                    : '${purchase.installments} parcelas',
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(false);
-              },
-              child: const Text('Cancelar'),
-            ),
-            FilledButton.icon(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(true);
-              },
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('Excluir'),
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error,
-                foregroundColor: Theme.of(context).colorScheme.onError,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (shouldDelete != true) {
+    if (!await showPurchaseDeleteConfirmation(context, record)) {
       return;
     }
 
@@ -409,7 +349,7 @@ class _PurchaseHistoryPage extends StatelessWidget {
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Compra "${purchase.name}" excluída.')),
+      SnackBar(content: Text('Compra "${record.entry.name}" excluída.')),
     );
   }
 
@@ -440,9 +380,7 @@ class _PurchaseHistoryPage extends StatelessWidget {
                   vertical: 10,
                 ),
                 leading: CircleAvatar(
-                  backgroundColor: Color(
-                    purchase.cardColor ?? 0xFF455A64,
-                  ),
+                  backgroundColor: Color(purchase.cardColor ?? 0xFF455A64),
                   child: const Icon(
                     Icons.shopping_bag_outlined,
                     color: Colors.white,
@@ -455,21 +393,35 @@ class _PurchaseHistoryPage extends StatelessWidget {
                 subtitle: Text(
                   '$cardName\n${dateFormatter.format(record.purchaseDate)}',
                 ),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      currencyFormatter.format(
-                        purchase.amountInCents / 100,
-                      ),
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          currencyFormatter.format(
+                            purchase.amountInCents / 100,
+                          ),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          (purchase.installments ?? 1) == 1
+                              ? 'À vista'
+                              : '${purchase.installments}x',
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      (purchase.installments ?? 1) == 1
-                          ? 'À vista'
-                          : '${purchase.installments}x',
+                    IconButton(
+                      key: ValueKey('delete-purchase-${purchase.id}'),
+                      onPressed: () => confirmDeletePurchase(context, record),
+                      tooltip: 'Excluir ${purchase.name}',
+                      icon: Icon(
+                        Icons.delete_outline,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ],
                 ),

@@ -7,13 +7,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../controllers/app_update_controller.dart';
 import '../controllers/financial_month_controller.dart';
 import '../controllers/theme_controller.dart';
-import '../features/calendar/pages/calendar_page.dart';
 import '../features/cards/pages/cards_page.dart';
 import '../features/dashboard/pages/home_page.dart';
 import '../features/history/pages/history_page.dart';
 import '../features/purchase/pages/purchase_page.dart';
 import '../features/settings/pages/settings_page.dart';
 import '../services/app_update_service.dart';
+import '../services/billing_notification_scheduler.dart';
 
 class NavigationPage extends StatefulWidget {
   const NavigationPage({
@@ -39,6 +39,8 @@ class _NavigationPageState extends State<NavigationPage>
   final Set<int> _visitedPages = <int>{0};
   late final AppUpdateController _appUpdateController;
   late final bool _ownsAppUpdateController;
+  late final BillingNotificationScheduler _billingNotificationScheduler;
+  Timer? _billingReminderTimer;
   bool _updatePromptShown = false;
 
   static const items = [
@@ -63,11 +65,6 @@ class _NavigationPageState extends State<NavigationPage>
       selectedIcon: FluentIcons.receipt_24_filled,
     ),
     _NavigationItem(
-      label: 'Parcelas',
-      icon: FluentIcons.calendar_month_24_regular,
-      selectedIcon: FluentIcons.calendar_month_24_filled,
-    ),
-    _NavigationItem(
       label: 'Mais',
       icon: FluentIcons.settings_24_regular,
       selectedIcon: FluentIcons.settings_24_filled,
@@ -80,9 +77,12 @@ class _NavigationPageState extends State<NavigationPage>
     _ownsAppUpdateController = widget.appUpdateController == null;
     _appUpdateController =
         widget.appUpdateController ?? AppUpdateController(AppUpdateService());
+    _billingNotificationScheduler = BillingNotificationScheduler();
+    widget.controller.addListener(_queueBillingReminderSync);
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_checkForUpdatesAtStartup());
+      unawaited(_syncBillingReminders());
     });
   }
 
@@ -90,12 +90,15 @@ class _NavigationPageState extends State<NavigationPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(_appUpdateController.handleAppResumed());
+      unawaited(_syncBillingReminders());
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    widget.controller.removeListener(_queueBillingReminderSync);
+    _billingReminderTimer?.cancel();
     if (_ownsAppUpdateController) {
       _appUpdateController.dispose();
     }
@@ -153,7 +156,7 @@ class _NavigationPageState extends State<NavigationPage>
           body: page,
           bottomNavigationBar: NavigationBar(
             selectedIndex: currentIndex,
-            labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
             onDestinationSelected: _selectPage,
             destinations: items
                 .map(
@@ -187,8 +190,7 @@ class _NavigationPageState extends State<NavigationPage>
           }
         },
       ),
-      4 => CalendarPage(controller: widget.controller),
-      5 => SettingsPage(
+      4 => SettingsPage(
         controller: widget.controller,
         themeController: widget.themeController,
         appUpdateController: _appUpdateController,
@@ -235,6 +237,28 @@ class _NavigationPageState extends State<NavigationPage>
       );
       await _appUpdateController.downloadAndInstall();
     }
+  }
+
+  void _queueBillingReminderSync() {
+    _billingReminderTimer?.cancel();
+    _billingReminderTimer = Timer(
+      const Duration(milliseconds: 500),
+      () => unawaited(_syncBillingReminders()),
+    );
+  }
+
+  Future<void> _syncBillingReminders() async {
+    if (!widget.controller.isInitialized) {
+      return;
+    }
+    final now = DateTime.now();
+    final actualMonth =
+        widget.controller.financialMonthForDate(now) ??
+        widget.controller.currentMonth;
+    await _billingNotificationScheduler.sync(
+      currentMonth: actualMonth,
+      now: now,
+    );
   }
 
   void _selectPage(int index) {

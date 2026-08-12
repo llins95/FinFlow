@@ -13,6 +13,7 @@ class FinancialEntry {
   final FinancialEntryType type;
   final bool isRecurring;
   final bool isActive;
+  final bool isPaid;
   final String? relatedCardId;
   final String? relatedCardName;
   final String? cardBank;
@@ -32,6 +33,7 @@ class FinancialEntry {
     required this.type,
     this.isRecurring = false,
     this.isActive = true,
+    this.isPaid = false,
     this.relatedCardId,
     this.relatedCardName,
     this.cardBank,
@@ -54,6 +56,7 @@ class FinancialEntry {
     int? amountInCents,
     bool? isRecurring,
     bool? isActive,
+    bool? isPaid,
     String? relatedCardId,
     String? relatedCardName,
     String? cardBank,
@@ -73,6 +76,7 @@ class FinancialEntry {
       type: type,
       isRecurring: isRecurring ?? this.isRecurring,
       isActive: isActive ?? this.isActive,
+      isPaid: isPaid ?? this.isPaid,
       relatedCardId: relatedCardId ?? this.relatedCardId,
       relatedCardName: relatedCardName ?? this.relatedCardName,
       cardBank: cardBank ?? this.cardBank,
@@ -95,6 +99,7 @@ class FinancialEntry {
       'type': type.name,
       'isRecurring': isRecurring,
       'isActive': isActive,
+      'isPaid': isPaid,
       'relatedCardId': relatedCardId,
       'relatedCardName': relatedCardName,
       'cardBank': cardBank,
@@ -123,6 +128,7 @@ class FinancialEntry {
       type: type,
       isRecurring: map['isRecurring'] as bool? ?? false,
       isActive: map['isActive'] as bool? ?? true,
+      isPaid: map['isPaid'] as bool? ?? false,
       relatedCardId: map['relatedCardId'] as String?,
       relatedCardName: map['relatedCardName'] as String?,
       cardBank: map['cardBank'] as String?,

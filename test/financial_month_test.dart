@@ -27,9 +27,7 @@ void main() {
       );
       expect(previousBalance.amountInCents, -88370);
 
-      final invoices = september.entriesOfType(
-        FinancialEntryType.cardInvoice,
-      );
+      final invoices = september.entriesOfType(FinancialEntryType.cardInvoice);
       expect(invoices, hasLength(8));
       expect(invoices.every((entry) => entry.amountInCents == 0), isTrue);
 
@@ -60,6 +58,76 @@ void main() {
       expect(savedPicPay.amountInCents, 10000);
     });
 
+    test('marcar como pago retira somente do total pendente', () async {
+      final store = MemoryFinancialMonthStore();
+      final controller = FinancialMonthController(store);
+      await controller.initialize(now: DateTime(2026, 8, 5));
+
+      final picPay = controller.currentMonth.entries.singleWhere(
+        (entry) => entry.id == 'card-picpay',
+      );
+      final totalBefore = controller.currentTotalDebtInCents;
+      await controller.setEntryPaid(picPay, true);
+
+      expect(controller.currentTotalDebtInCents, totalBefore);
+      expect(
+        controller.currentTotalPendingInCents,
+        totalBefore - picPay.amountInCents,
+      );
+      expect(controller.currentTotalPaidInCents, picPay.amountInCents);
+
+      final saved = await store.load(2026, 8);
+      expect(
+        saved!.entries.singleWhere((entry) => entry.id == 'card-picpay').isPaid,
+        isTrue,
+      );
+      controller.dispose();
+    });
+
+    test('novo mês redefine pagamentos recorrentes como pendentes', () {
+      final august = buildInitialFinancialMonth();
+      final paidPicPay = august.entries.singleWhere(
+        (entry) => entry.id == 'card-picpay',
+      );
+      final paidMonth = august.replaceEntry(paidPicPay.copyWith(isPaid: true));
+
+      final september = paidMonth.createNextMonth();
+
+      expect(
+        september.entries
+            .singleWhere((entry) => entry.id == 'card-picpay')
+            .isPaid,
+        isFalse,
+      );
+    });
+
+    test('exclui uma receita antiga, mesmo sem prefixo custom', () async {
+      final store = MemoryFinancialMonthStore();
+      final controller = FinancialMonthController(store);
+      await controller.initialize(now: DateTime(2026, 8, 5));
+
+      await controller.removeEntry('income-salary');
+
+      expect(
+        controller.currentMonth.entries.any(
+          (entry) => entry.id == 'income-salary',
+        ),
+        isFalse,
+      );
+      controller.dispose();
+    });
+
+    test('lê meses antigos sem estado de pagamento', () {
+      final entry = FinancialEntry.fromMap({
+        'id': 'legacy-expense',
+        'name': 'Despesa antiga',
+        'amountInCents': 1000,
+        'type': 'expense',
+      });
+
+      expect(entry.isPaid, isFalse);
+    });
+
     test('lista o histórico e reabre um mês salvo', () async {
       final store = MemoryFinancialMonthStore();
       final controller = FinancialMonthController(store);
@@ -67,10 +135,10 @@ void main() {
 
       await controller.goToNextMonth();
 
-      expect(
-        controller.availableMonths.map((month) => month.storageKey),
-        ['2026-09', '2026-08'],
-      );
+      expect(controller.availableMonths.map((month) => month.storageKey), [
+        '2026-09',
+        '2026-08',
+      ]);
 
       final opened = await controller.goToMonth(2026, 8);
 

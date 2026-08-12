@@ -8,11 +8,13 @@ class FinancialEntryDraft {
   final String name;
   final int amountInCents;
   final bool isRecurring;
+  final int? dueDay;
 
   const FinancialEntryDraft({
     required this.name,
     required this.amountInCents,
     required this.isRecurring,
+    this.dueDay,
   });
 }
 
@@ -25,6 +27,8 @@ class FinancialEntryDialog extends StatefulWidget {
     this.initialRecurring = false,
     this.allowNameEditing = true,
     this.showRecurringOption = false,
+    this.showDueDay = false,
+    this.initialDueDay,
     this.allowNegative = false,
   });
 
@@ -34,6 +38,8 @@ class FinancialEntryDialog extends StatefulWidget {
   final bool initialRecurring;
   final bool allowNameEditing;
   final bool showRecurringOption;
+  final bool showDueDay;
+  final int? initialDueDay;
   final bool allowNegative;
 
   static Future<FinancialEntryDraft?> show(
@@ -44,6 +50,8 @@ class FinancialEntryDialog extends StatefulWidget {
     bool initialRecurring = false,
     bool allowNameEditing = true,
     bool showRecurringOption = false,
+    bool showDueDay = false,
+    int? initialDueDay,
     bool allowNegative = false,
   }) {
     return showDialog<FinancialEntryDraft>(
@@ -55,6 +63,8 @@ class FinancialEntryDialog extends StatefulWidget {
         initialRecurring: initialRecurring,
         allowNameEditing: allowNameEditing,
         showRecurringOption: showRecurringOption,
+        showDueDay: showDueDay,
+        initialDueDay: initialDueDay,
         allowNegative: allowNegative,
       ),
     );
@@ -68,6 +78,7 @@ class _FinancialEntryDialogState extends State<FinancialEntryDialog> {
   final formKey = GlobalKey<FormState>();
   late final TextEditingController nameController;
   late final TextEditingController amountController;
+  late final TextEditingController dueDayController;
   late bool isRecurring;
 
   @override
@@ -78,6 +89,9 @@ class _FinancialEntryDialogState extends State<FinancialEntryDialog> {
     amountController = TextEditingController(
       text: formatter.format(widget.initialAmountInCents / 100),
     );
+    dueDayController = TextEditingController(
+      text: widget.initialDueDay?.toString() ?? '',
+    );
     isRecurring = widget.initialRecurring;
   }
 
@@ -85,6 +99,7 @@ class _FinancialEntryDialogState extends State<FinancialEntryDialog> {
   void dispose() {
     nameController.dispose();
     amountController.dispose();
+    dueDayController.dispose();
     super.dispose();
   }
 
@@ -99,6 +114,7 @@ class _FinancialEntryDialogState extends State<FinancialEntryDialog> {
         name: nameController.text.trim(),
         amountInCents: amountInCents,
         isRecurring: isRecurring,
+        dueDay: int.tryParse(dueDayController.text),
       ),
     );
   }
@@ -157,6 +173,32 @@ class _FinancialEntryDialogState extends State<FinancialEntryDialog> {
                 },
                 onFieldSubmitted: (_) => save(),
               ),
+              if (widget.showDueDay) ...[
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: dueDayController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(2),
+                  ],
+                  decoration: const InputDecoration(
+                    labelText: 'Dia de vencimento (opcional)',
+                    hintText: 'Ex.: 10',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return null;
+                    }
+                    final day = int.tryParse(value);
+                    if (day == null || day < 1 || day > 31) {
+                      return 'Use um dia entre 1 e 31.';
+                    }
+                    return null;
+                  },
+                ),
+              ],
               if (widget.showRecurringOption) ...[
                 const SizedBox(height: 8),
                 CheckboxListTile(

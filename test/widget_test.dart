@@ -8,6 +8,7 @@ void main() {
   testWidgets('exibe o resumo financeiro de agosto de 2026', (tester) async {
     final controller = FinancialMonthController(MemoryFinancialMonthStore());
     await controller.initialize(now: DateTime(2026, 8, 5));
+    addTearDown(controller.dispose);
 
     await tester.pumpWidget(FinFlowApp(financialMonthController: controller));
     await tester.pumpAndSettle();
@@ -15,7 +16,7 @@ void main() {
     expect(find.text('FinFlow'), findsOneWidget);
     expect(find.text('Agosto 2026'), findsOneWidget);
     expect(find.text('Total a pagar'), findsOneWidget);
-    expect(find.textContaining('5.759,27'), findsOneWidget);
+    expect(find.textContaining('5.759,27'), findsAtLeastNWidgets(1));
     expect(find.textContaining('4.875,57'), findsOneWidget);
     expect(find.text('Falta'), findsOneWidget);
     expect(find.textContaining('883,70'), findsOneWidget);
@@ -37,5 +38,21 @@ void main() {
       find.text('Busque pelo nome da compra ou por um mês'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('mostra o nome de todas as abas e retira Parcelas', (
+    tester,
+  ) async {
+    final controller = FinancialMonthController(MemoryFinancialMonthStore());
+    await controller.initialize(now: DateTime(2026, 8, 5));
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(FinFlowApp(financialMonthController: controller));
+    await tester.pumpAndSettle();
+
+    for (final label in ['Início', 'Cartões', 'Compra', 'Histórico', 'Mais']) {
+      expect(find.text(label), findsOneWidget);
+    }
+    expect(find.text('Parcelas'), findsNothing);
   });
 }

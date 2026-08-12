@@ -29,6 +29,10 @@ class FinancialMonth {
       .where((entry) => entry.isDebt)
       .fold(0, (total, entry) => total + entry.amountInCents);
 
+  int get totalPendingDebtInCents => entries
+      .where((entry) => entry.isDebt && !entry.isPaid)
+      .fold(0, (total, entry) => total + entry.amountInCents);
+
   int get totalAvailableInCents => entries
       .where(
         (entry) =>
@@ -44,9 +48,7 @@ class FinancialMonth {
       year: year,
       month: month,
       entries: entries
-          .map(
-            (entry) => entry.id == updatedEntry.id ? updatedEntry : entry,
-          )
+          .map((entry) => entry.id == updatedEntry.id ? updatedEntry : entry)
           .toList(),
     );
   }
@@ -76,11 +78,18 @@ class FinancialMonth {
               entry.isActive &&
               entry.type != FinancialEntryType.previousBalance,
         )
-        .map(
-          (entry) => entry.type == FinancialEntryType.cardInvoice
-              ? entry.copyWith(amountInCents: 0)
-              : entry,
-        )
+        .map((entry) {
+          if (!entry.isDebt) {
+            return entry;
+          }
+
+          return entry.copyWith(
+            amountInCents: entry.type == FinancialEntryType.cardInvoice
+                ? 0
+                : entry.amountInCents,
+            isPaid: false,
+          );
+        })
         .toList();
 
     return FinancialMonth(

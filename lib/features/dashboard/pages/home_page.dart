@@ -60,6 +60,8 @@ class HomePage extends StatelessWidget {
               _MonthSelector(controller: controller),
               const SizedBox(height: 16),
               _FinancialOverview(controller: controller),
+              const SizedBox(height: 16),
+              _DashboardDetails(controller: controller),
               const SizedBox(height: 24),
               Text(
                 'Toque em qualquer valor para atualizar',
@@ -72,6 +74,7 @@ class HomePage extends StatelessWidget {
                 entries: cardInvoices,
                 amountInCentsFor: controller.cardInvoiceTotalInCents,
                 onEdit: (entry) => _editEntry(context, entry),
+                onTogglePaid: _togglePaid,
               ),
               const SizedBox(height: 16),
               FinancialEntrySection(
@@ -79,6 +82,7 @@ class HomePage extends StatelessWidget {
                 icon: Icons.receipt_long_outlined,
                 entries: expenses,
                 onEdit: (entry) => _editEntry(context, entry),
+                onTogglePaid: _togglePaid,
                 onAdd: () => _addEntry(
                   context,
                   FinancialEntryType.expense,
@@ -126,8 +130,10 @@ class HomePage extends StatelessWidget {
       initialName: entry.name,
       initialAmountInCents: entry.amountInCents,
       initialRecurring: entry.isRecurring,
+      initialDueDay: entry.dueDay,
       allowNameEditing: entry.type != FinancialEntryType.cardInvoice,
       showRecurringOption: entry.type == FinancialEntryType.expense,
+      showDueDay: entry.type == FinancialEntryType.expense,
       allowNegative: entry.type == FinancialEntryType.previousBalance,
     );
 
@@ -140,6 +146,7 @@ class HomePage extends StatelessWidget {
         name: draft.name,
         amountInCents: draft.amountInCents,
         isRecurring: draft.isRecurring,
+        dueDay: draft.dueDay,
       ),
     );
   }
@@ -153,6 +160,7 @@ class HomePage extends StatelessWidget {
       context,
       title: title,
       showRecurringOption: true,
+      showDueDay: type == FinancialEntryType.expense,
     );
 
     if (draft == null) {
@@ -164,6 +172,7 @@ class HomePage extends StatelessWidget {
       amountInCents: draft.amountInCents,
       type: type,
       isRecurring: draft.isRecurring,
+      dueDay: draft.dueDay,
     );
   }
 
@@ -189,6 +198,10 @@ class HomePage extends StatelessWidget {
     if (confirmed == true) {
       await controller.removeEntry(entry.id);
     }
+  }
+
+  Future<void> _togglePaid(FinancialEntry entry) {
+    return controller.setEntryPaid(entry, !entry.isPaid);
   }
 }
 
@@ -243,7 +256,7 @@ class _FinancialOverview extends StatelessWidget {
   Widget build(BuildContext context) {
     final month = controller.currentMonth;
     final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
-    final totalDebtInCents = controller.currentTotalDebtInCents;
+    final totalDebtInCents = controller.currentTotalPendingInCents;
     final balanceInCents = controller.currentBalanceInCents;
     final hasSurplus = balanceInCents >= 0;
 
@@ -283,6 +296,170 @@ class _FinancialOverview extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _DashboardDetails extends StatelessWidget {
+  const _DashboardDetails({required this.controller});
+
+  final FinancialMonthController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth >= 760
+            ? (constraints.maxWidth - 16) / 2
+            : constraints.maxWidth;
+
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: [
+            SizedBox(
+              width: width,
+              child: _PaymentProgress(controller: controller),
+            ),
+            SizedBox(
+              width: width,
+              child: _UpcomingDueDates(controller: controller),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PaymentProgress extends StatelessWidget {
+  const _PaymentProgress({required this.controller});
+
+  final FinancialMonthController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    final total = controller.currentTotalDebtInCents;
+    final paid = controller.currentTotalPaidInCents;
+    final pending = controller.currentTotalPendingInCents;
+    final progress = total == 0 ? 1.0 : (paid / total).clamp(0.0, 1.0);
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Progresso do mês',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 14),
+            LinearProgressIndicator(value: progress, minHeight: 10),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: _ProgressValue(
+                    label: 'Pago',
+                    value: currency.format(paid / 100),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _ProgressValue(
+                    label: 'Pendente',
+                    value: currency.format(pending / 100),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProgressValue extends StatelessWidget {
+  const _ProgressValue({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+}
+
+class _UpcomingDueDates extends StatelessWidget {
+  const _UpcomingDueDates({required this.controller});
+
+  final FinancialMonthController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries =
+        controller.currentMonth.entries
+            .where(
+              (entry) =>
+                  entry.isDebt &&
+                  !entry.isPaid &&
+                  entry.dueDay != null &&
+                  (entry.type != FinancialEntryType.cardInvoice ||
+                      controller.cardInvoiceTotalInCents(entry) > 0) &&
+                  (entry.type != FinancialEntryType.expense ||
+                      entry.amountInCents > 0),
+            )
+            .toList()
+          ..sort((a, b) => a.dueDay!.compareTo(b.dueDay!));
+    final visibleEntries = entries.take(3).toList();
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Próximos vencimentos',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            if (visibleEntries.isEmpty)
+              const Text('Nenhum vencimento pendente neste mês.')
+            else
+              for (final entry in visibleEntries)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.event_outlined),
+                  title: Text(entry.name),
+                  trailing: Text('Dia ${entry.dueDay}'),
+                ),
+          ],
+        ),
+      ),
     );
   }
 }

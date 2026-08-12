@@ -160,6 +160,23 @@ void main() {
       expect(controller.purchaseRecords.single.month.storageKey, '2026-09');
     });
 
+    test('excluir compra remove o histórico e todas as parcelas', () async {
+      await controller.addPurchase(
+        description: 'Compra lançada por engano',
+        amountInCents: 10001,
+        installments: 3,
+        purchaseDate: DateTime(2026, 8, 5),
+        cardInvoice: controller.activeCardInvoices.single,
+      );
+      final record = controller.purchaseRecords.single;
+
+      await controller.removePurchase(record);
+
+      expect(controller.purchaseRecords, isEmpty);
+      await controller.goToNextMonth();
+      expect(controller.currentTotalDebtInCents, 0);
+    });
+
     test('não duplica uma notificação já importada', () async {
       const sourceReference = 'wallet-notification-demo';
 

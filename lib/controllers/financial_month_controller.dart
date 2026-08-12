@@ -68,23 +68,70 @@ class FinancialMonthController extends ChangeNotifier {
   }
 
   int cardInvoiceTotalInCents(FinancialEntry cardInvoice) {
-    return cardInvoice.amountInCents +
-        purchaseInstallmentsForCardInMonth(cardInvoice, currentMonth.date);
+    return cardInvoiceTotalInCentsForMonth(cardInvoice, currentMonth.date);
   }
 
-  int get currentTotalDebtInCents {
-    final regularExpenses = currentMonth
+  int cardInvoiceTotalInCentsForMonth(
+    FinancialEntry cardInvoice,
+    DateTime month,
+  ) {
+    return cardInvoice.amountInCents +
+        purchaseInstallmentsForCardInMonth(cardInvoice, month);
+  }
+
+  int totalDebtInCentsForMonth(FinancialMonth month) {
+    final regularExpenses = month
         .entriesOfType(FinancialEntryType.expense)
         .fold<int>(0, (total, entry) => total + entry.amountInCents);
-    final cardInvoices = currentMonth
+    final cardInvoices = month
         .entriesOfType(FinancialEntryType.cardInvoice)
-        .fold<int>(0, (total, entry) => total + cardInvoiceTotalInCents(entry));
+        .fold<int>(
+          0,
+          (total, entry) =>
+              total + cardInvoiceTotalInCentsForMonth(entry, month.date),
+        );
 
     return regularExpenses + cardInvoices;
   }
 
-  int get currentBalanceInCents =>
-      currentMonth.totalAvailableInCents - currentTotalDebtInCents;
+  int totalPendingInCentsForMonth(FinancialMonth month) {
+    final regularExpenses = month
+        .entriesOfType(FinancialEntryType.expense)
+        .where((entry) => !entry.isPaid)
+        .fold<int>(0, (total, entry) => total + entry.amountInCents);
+    final cardInvoices = month
+        .entriesOfType(FinancialEntryType.cardInvoice)
+        .where((entry) => !entry.isPaid)
+        .fold<int>(
+          0,
+          (total, entry) =>
+              total + cardInvoiceTotalInCentsForMonth(entry, month.date),
+        );
+
+    return regularExpenses + cardInvoices;
+  }
+
+  int totalPaidInCentsForMonth(FinancialMonth month) {
+    return totalDebtInCentsForMonth(month) - totalPendingInCentsForMonth(month);
+  }
+
+  int balanceInCentsForMonth(FinancialMonth month) {
+    return month.totalAvailableInCents - totalDebtInCentsForMonth(month);
+  }
+
+  int get currentTotalDebtInCents => totalDebtInCentsForMonth(currentMonth);
+
+  int get currentTotalPendingInCents =>
+      totalPendingInCentsForMonth(currentMonth);
+
+  int get currentTotalPaidInCents => totalPaidInCentsForMonth(currentMonth);
+
+  int get currentBalanceInCents => balanceInCentsForMonth(currentMonth);
+
+  FinancialMonth? financialMonthForDate(DateTime date) {
+    final key = '${date.year}-${date.month.toString().padLeft(2, '0')}';
+    return _loadedMonths[key];
+  }
 
   List<FinancialEntry> get activeCardInvoices {
     final cards =
@@ -217,11 +264,20 @@ class FinancialMonthController extends ChangeNotifier {
     await _store.save(currentMonth);
   }
 
+  Future<void> setEntryPaid(FinancialEntry entry, bool isPaid) async {
+    if (!entry.isDebt) {
+      throw ArgumentError('Somente despesas e faturas podem ser pagas.');
+    }
+
+    await updateEntry(entry.copyWith(isPaid: isPaid));
+  }
+
   Future<void> addEntry({
     required String name,
     required int amountInCents,
     required FinancialEntryType type,
     bool isRecurring = false,
+    int? dueDay,
   }) async {
     final entry = FinancialEntry(
       id: 'custom-${DateTime.now().microsecondsSinceEpoch}',
@@ -229,6 +285,7 @@ class FinancialMonthController extends ChangeNotifier {
       amountInCents: amountInCents,
       type: type,
       isRecurring: isRecurring,
+      dueDay: dueDay,
     );
 
     _currentMonth = currentMonth.addEntry(entry);

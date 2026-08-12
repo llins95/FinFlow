@@ -6,6 +6,9 @@ import '../../../controllers/financial_month_controller.dart';
 import '../../../models/financial_entry.dart';
 import '../../../models/purchase_record.dart';
 import '../../../utils/money_parser.dart';
+import '../widgets/purchase_delete_confirmation.dart';
+
+enum PurchaseEditResult { updated, deleted }
 
 class EditPurchasePage extends StatefulWidget {
   const EditPurchasePage({
@@ -91,7 +94,18 @@ class _EditPurchasePageState extends State<EditPurchasePage> {
     );
 
     if (mounted) {
-      Navigator.pop(context, true);
+      Navigator.pop(context, PurchaseEditResult.updated);
+    }
+  }
+
+  Future<void> _delete() async {
+    if (!await showPurchaseDeleteConfirmation(context, widget.record)) {
+      return;
+    }
+
+    await widget.controller.removePurchase(widget.record);
+    if (mounted) {
+      Navigator.pop(context, PurchaseEditResult.deleted);
     }
   }
 
@@ -209,6 +223,17 @@ class _EditPurchasePageState extends State<EditPurchasePage> {
               label: const Text('Salvar alterações'),
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(56),
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              key: const ValueKey('delete-purchase-from-edit'),
+              onPressed: _delete,
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Excluir compra'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+                foregroundColor: Theme.of(context).colorScheme.error,
               ),
             ),
           ],
