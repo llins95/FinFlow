@@ -111,15 +111,19 @@ jobs:
 
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           $visualStudio = & $vswhere -latest -products * -property installationPath
-          $redistRoot = Join-Path $visualStudio "VC\Redist\MSVC"
-          $redistVersion = Get-ChildItem $redistRoot -Directory |
-            Sort-Object Name -Descending |
-            Select-Object -First 1
-          $crtDirectory = Join-Path $redistVersion.FullName "x64\Microsoft.VC143.CRT"
-
           foreach ($runtime in @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")) {
-            $runtimePath = Join-Path $crtDirectory $runtime
-            if (-not (Test-Path $runtimePath)) {
+            $runtimePath = Get-ChildItem (Join-Path $visualStudio "VC\Redist\MSVC") `
+              -Recurse -File -Filter $runtime |
+              Where-Object { $_.FullName -match '[\\/]x64[\\/]' } |
+              Select-Object -First 1 -ExpandProperty FullName
+
+            if (-not $runtimePath) {
+              $systemRuntime = Join-Path $env:WINDIR "System32\$runtime"
+              if (Test-Path $systemRuntime) {
+                $runtimePath = $systemRuntime
+              }
+            }
+            if (-not $runtimePath -or -not (Test-Path $runtimePath)) {
               throw "Runtime do Visual C++ não encontrado: $runtime"
             }
             Copy-Item $runtimePath $packageDirectory
