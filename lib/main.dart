@@ -15,6 +15,9 @@ Future<void> main() async {
   }
 
   await Hive.openBox<Purchase>('purchases');
+  await Hive.openBox('financial_entries');
+  await Hive.openBox('invoice_payments');
+  await Hive.openBox('settings');
 
   runApp(const FinFlowApp());
 }

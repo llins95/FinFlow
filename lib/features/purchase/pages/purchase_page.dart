@@ -17,9 +17,7 @@ class PurchasePage extends StatefulWidget {
 class _PurchasePageState extends State<PurchasePage> {
   final TextEditingController descriptionController = TextEditingController();
 
-  final TextEditingController amountController = TextEditingController(
-    text: '150,00',
-  );
+  final TextEditingController amountController = TextEditingController();
 
   final TextEditingController installmentsController = TextEditingController(
     text: '1',
@@ -296,7 +294,7 @@ class _PurchasePageState extends State<PurchasePage> {
     final installmentAmounts = installmentAmountsInCents;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Simular compra')),
+      appBar: AppBar(title: const Text('Adicionar compra')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [

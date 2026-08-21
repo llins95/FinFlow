@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../features/calendar/pages/calendar_page.dart';
+import '../features/entries/pages/entries_page.dart';
 import '../features/cards/pages/cards_page.dart';
 import '../features/dashboard/pages/home_page.dart';
 import '../features/history/pages/history_page.dart';
@@ -26,7 +26,7 @@ class _NavigationPageState extends State<NavigationPage> {
 
     HistoryPage(),
 
-    CalendarPage(),
+    EntriesPage(),
 
     SettingsPage(),
   ];
@@ -61,7 +61,7 @@ class _NavigationPageState extends State<NavigationPage> {
           NavigationDestination(
             icon: Icon(Icons.add_circle_outline),
             selectedIcon: Icon(Icons.add_circle),
-            label: "Compra",
+            label: "Adicionar compra",
           ),
 
           NavigationDestination(
@@ -71,9 +71,9 @@ class _NavigationPageState extends State<NavigationPage> {
           ),
 
           NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month),
-            label: "Calendário",
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
+            label: "Lançamentos",
           ),
 
           NavigationDestination(

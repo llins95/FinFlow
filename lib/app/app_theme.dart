@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  static ThemeData dark = ThemeData(
-    useMaterial3: true,
+  static ThemeData light = _build(Brightness.light);
+  static ThemeData dark = _build(Brightness.dark);
 
-    brightness: Brightness.dark,
-
-    colorSchemeSeed: Colors.blue,
-
-    scaffoldBackgroundColor: const Color(0xff121212),
-
-    appBarTheme: const AppBarTheme(
-      centerTitle: false,
-      backgroundColor: Color(0xff121212),
-      elevation: 0,
-    ),
-
-    cardTheme: const CardThemeData(elevation: 0, margin: EdgeInsets.all(12)),
-  );
+  static ThemeData _build(Brightness brightness) {
+    final scheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xff0078d4),
+      brightness: brightness,
+    );
+    return ThemeData(
+      useMaterial3: true,
+      brightness: brightness,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: scheme.surface,
+      appBarTheme: AppBarTheme(centerTitle: false, elevation: 0, backgroundColor: scheme.surface),
+      cardTheme: const CardThemeData(elevation: 0, margin: EdgeInsets.all(12)),
+      inputDecorationTheme: const InputDecorationTheme(border: OutlineInputBorder()),
+      navigationBarTheme: const NavigationBarThemeData(height: 72),
+    );
+  }
 }

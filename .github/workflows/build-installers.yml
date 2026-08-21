@@ -1,0 +1,85 @@
+name: Compilar FinFlow
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - arena/01a02655-finflow
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.4"
+          channel: stable
+          cache: true
+
+      - name: Instalar dependências
+        run: flutter pub get
+
+      - name: Análise estática
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - name: Executar testes
+        run: flutter test
+
+      - name: Compilar APK
+        run: flutter build apk --release
+
+      - name: Publicar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinFlow-Android
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  windows:
+    name: Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.4"
+          channel: stable
+          cache: true
+
+      - name: Habilitar Windows
+        run: flutter config --enable-windows-desktop
+
+      - name: Instalar dependências
+        run: flutter pub get
+
+      - name: Compilar Windows
+        run: flutter build windows --release
+
+      - name: Criar pacote portátil
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path build/windows/x64/runner/Release/* `
+            -DestinationPath FinFlow-Windows.zip
+
+      - name: Publicar pacote Windows
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinFlow-Windows
+          path: FinFlow-Windows.zip
+          if-no-files-found: error
+          retention-days: 30
