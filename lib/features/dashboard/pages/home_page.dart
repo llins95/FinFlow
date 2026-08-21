@@ -59,7 +59,22 @@ class _DashboardBody extends StatelessWidget {
       ]),
       const SizedBox(height: 24),
       Text('Despesas', style: Theme.of(context).textTheme.titleLarge),
-      ...entries.where((e) => e.type == EntryType.expense).map((e) => Card(child: ListTile(title: Text(e.description), subtitle: Text(DateFormat('dd/MM').format(e.dueDate)), trailing: FilledButton.tonal(onPressed: () => FinanceRepository.saveEntry(e.copyWith(paid: !e.paid)), child: Text(e.paid ? 'PAGO' : money.format(e.amount))))),
+      ...entries.where((entry) => entry.type == EntryType.expense).map(
+        (entry) => Card(
+          child: ListTile(
+            title: Text(entry.description),
+            subtitle: Text(DateFormat('dd/MM').format(entry.dueDate)),
+            trailing: FilledButton.tonal(
+              onPressed: () => FinanceRepository.saveEntry(
+                entry.copyWith(paid: !entry.paid),
+              ),
+              child: Text(
+                entry.paid ? 'PAGO' : money.format(entry.amount),
+              ),
+            ),
+          ),
+        ),
+      ),
       const SizedBox(height: 16),
       Text('Faturas dos cartões', style: Theme.of(context).textTheme.titleLarge),
       ...invoices.entries.map((invoice) { final card = mockCards.firstWhere((c) => c.id == invoice.key); final isPaid = FinanceRepository.isInvoicePaid(card.id, month); return Card(child: ListTile(title: Text(card.name), subtitle: Text('${installments.where((i) => i.cardId == card.id).length} parcela(s)'), trailing: FilledButton.tonal(onPressed: () => FinanceRepository.setInvoicePaid(card.id, month, !isPaid), child: Text(isPaid ? 'PAGO' : money.format(invoice.value / 100))))); }),
