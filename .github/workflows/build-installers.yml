@@ -79,4 +79,7 @@ jobs:
       - name: Publicar pacote Windows
         uses: actions/upload-artifact@v4
         with:
-          name: 
+          name: FinFlow-Windows
+          path: FinFlow-Windows.zip
+          if-no-files-found: error
+          retention-days: 30
