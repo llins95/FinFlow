@@ -1,5 +1,6 @@
 import 'package:finflow/features/dashboard/widgets/financial_entry_section.dart';
 import 'package:finflow/models/financial_entry.dart';
+import 'package:finflow/shared/mini_credit_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -83,13 +84,12 @@ void main() {
       ),
     );
 
-    expect(
-      find.byKey(const ValueKey('mini-card-invoice-test')),
-      findsOneWidget,
+    final miniCardFinder = find.byKey(
+      const ValueKey('mini-card-invoice-test'),
     );
-    expect(
-      find.bySemanticsLabel('Mini cartão, bandeira Mastercard'),
-      findsOneWidget,
-    );
+    expect(miniCardFinder, findsOneWidget);
+    final miniCard = tester.widget<MiniCreditCard>(miniCardFinder);
+    expect(miniCard.color, 0xFF8A05BE);
+    expect(miniCard.brand, 'Mastercard');
   });
 }
