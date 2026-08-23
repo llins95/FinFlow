@@ -26,6 +26,11 @@ Windows.
 - sincronização Android–Windows com Supabase Realtime;
 - fila offline com reenvio automático;
 - histórico e criação do próximo mês com itens recorrentes;
+- repetição de receitas e despesas com mês final opcional;
+- identificação explícita do mês de cada fatura;
+- transferência idempotente do saldo restante do mês anterior;
+- gerenciamento de chaves Pix e QR Code PNG personalizado;
+- exclusão total protegida por duas confirmações;
 - migração automática das compras antigas salvas no Hive;
 - dados protegidos por RLS e isolados por usuário.
 
@@ -78,6 +83,9 @@ As compras fazem parte do JSON do mês financeiro. Por isso, usam a mesma fila
 offline e a mesma sincronização sem exigir uma segunda tabela.
 O valor manual da fatura continua preservado; na interface, ele é somado apenas
 às parcelas que vencem no mês aberto.
+
+O detalhamento das camadas locais, sincronização, modo offline, RLS e rotina de
+exclusão está em `docs/data-storage-audit.md`.
 
 ## Compras detectadas no Android
 

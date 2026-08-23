@@ -34,6 +34,10 @@ e os runtimes `msvcp140.dll`, `vcruntime140.dll` e `vcruntime140_1.dll`.
 | Dashboard, meses, receitas e despesas | Sim | Sim |
 | Cartões, faturas e compras parceladas | Sim | Sim |
 | Pagamentos, exclusões, busca e histórico | Sim | Sim |
+| Recorrência com mês final e saldo do mês anterior | Sim | Sim |
+| Edição de limite e identificação mensal da fatura | Sim | Sim |
+| Chaves Pix e QR Code PNG 1000 × 1000 | Sim | Sim |
+| Exclusão total com reset sincronizado | Sim | Sim |
 | Temas Fluent claro, escuro e sistema | Sim | Sim |
 | Login, Hive, fila offline e Supabase Realtime | Sim | Sim |
 | Verificação, download e aplicação de atualização | APK + SHA-256 | ZIP + SHA-256 e reinício automático |
@@ -51,6 +55,11 @@ financeiros podem ser cadastrados manualmente nas duas plataformas.
 - validar login e sincronização nos dois sentidos;
 - criar, editar, pagar e excluir lançamentos;
 - cadastrar uma compra parcelada e conferir as faturas futuras;
+- editar o limite de um cartão e conferir o mesmo valor no Android;
+- cadastrar uma recorrência com término e confirmar que ela não passa do mês;
+- transferir o saldo anterior duas vezes e confirmar que existe uma só entrada;
+- cadastrar uma chave Pix e substituir um QR Code PNG 1000 × 1000;
+- conferir as duas etapas da exclusão total sem concluir a última etapa;
 - testar os três temas;
 - fechar e abrir novamente para conferir a persistência local;
 - testar o botão de atualização quando uma versão posterior estiver publicada.
