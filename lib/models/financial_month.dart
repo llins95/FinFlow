@@ -108,7 +108,7 @@ class FinancialMonth {
     return FinancialMonth(
       year: nextDate.year,
       month: nextDate.month,
-      entries: [if (previousBalance != null) previousBalance, ...recurringEntries],
+      entries: [?previousBalance, ...recurringEntries],
     );
   }
 
