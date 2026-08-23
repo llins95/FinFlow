@@ -7,6 +7,7 @@ class CreditCardTile extends StatelessWidget {
   const CreditCardTile({
     super.key,
     required this.card,
+    required this.invoiceMonth,
     this.invoiceInCents,
     this.automaticPurchasesInCents = 0,
     this.onEditInvoice,
@@ -14,6 +15,7 @@ class CreditCardTile extends StatelessWidget {
   });
 
   final CreditCard card;
+  final DateTime invoiceMonth;
   final int? invoiceInCents;
   final int automaticPurchasesInCents;
   final VoidCallback? onEditInvoice;
@@ -22,6 +24,9 @@ class CreditCardTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    final monthLabel = toBeginningOfSentenceCase(
+      DateFormat('MMMM/yyyy', 'pt_BR').format(invoiceMonth),
+    );
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -84,7 +89,7 @@ class CreditCardTile extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             Text(
-              'Fatura do mês',
+              'Fatura de $monthLabel',
               style: TextStyle(color: Colors.grey.shade400),
             ),
             const SizedBox(height: 4),

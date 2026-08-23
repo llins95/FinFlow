@@ -40,6 +40,10 @@ class MainActivity : FlutterActivity() {
                     NotificationImportStore.remove(this, ids.toSet())
                     result.success(true)
                 }
+                "clearPendingNotifications" -> {
+                    NotificationImportStore.clear(this)
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }

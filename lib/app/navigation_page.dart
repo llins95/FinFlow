@@ -10,6 +10,7 @@ import '../controllers/theme_controller.dart';
 import '../features/cards/pages/cards_page.dart';
 import '../features/dashboard/pages/home_page.dart';
 import '../features/history/pages/history_page.dart';
+import '../features/pix/pages/pix_keys_page.dart';
 import '../features/purchase/pages/purchase_page.dart';
 import '../features/settings/pages/settings_page.dart';
 import '../services/app_update_service.dart';
@@ -63,6 +64,11 @@ class _NavigationPageState extends State<NavigationPage>
       label: 'Histórico',
       icon: FluentIcons.receipt_24_regular,
       selectedIcon: FluentIcons.receipt_24_filled,
+    ),
+    _NavigationItem(
+      label: 'Chaves Pix',
+      icon: FluentIcons.qr_code_24_regular,
+      selectedIcon: FluentIcons.qr_code_24_filled,
     ),
     _NavigationItem(
       label: 'Mais',
@@ -196,7 +202,8 @@ class _NavigationPageState extends State<NavigationPage>
           }
         },
       ),
-      4 => SettingsPage(
+      4 => PixKeysPage(controller: widget.controller),
+      5 => SettingsPage(
         controller: widget.controller,
         themeController: widget.themeController,
         appUpdateController: _appUpdateController,

@@ -50,14 +50,20 @@ class FinancialMonth {
       entries: entries
           .map((entry) => entry.id == updatedEntry.id ? updatedEntry : entry)
           .toList(),
+      clientUpdatedAt: _nextClientUpdatedAt(),
     );
   }
 
   FinancialMonth addEntry(FinancialEntry entry) {
+    if (entries.any((existing) => existing.id == entry.id)) {
+      return replaceEntry(entry);
+    }
+
     return FinancialMonth(
       year: year,
       month: month,
       entries: [...entries, entry],
+      clientUpdatedAt: _nextClientUpdatedAt(),
     );
   }
 
@@ -66,6 +72,7 @@ class FinancialMonth {
       year: year,
       month: month,
       entries: entries.where((entry) => entry.id != entryId).toList(),
+      clientUpdatedAt: _nextClientUpdatedAt(),
     );
   }
 
@@ -74,8 +81,7 @@ class FinancialMonth {
     final recurringEntries = entries
         .where(
           (entry) =>
-              entry.isRecurring &&
-              entry.isActive &&
+              entry.recursInto(nextDate) &&
               entry.type != FinancialEntryType.previousBalance,
         )
         .map((entry) {
@@ -95,16 +101,16 @@ class FinancialMonth {
     return FinancialMonth(
       year: nextDate.year,
       month: nextDate.month,
-      entries: [
-        FinancialEntry(
-          id: 'previous-balance',
-          name: 'Saldo do mês anterior',
-          amountInCents: balanceInCents,
-          type: FinancialEntryType.previousBalance,
-        ),
-        ...recurringEntries,
-      ],
+      entries: recurringEntries,
     );
+  }
+
+  DateTime _nextClientUpdatedAt() {
+    final now = DateTime.now().toUtc();
+    if (now.isAfter(clientUpdatedAt)) {
+      return now;
+    }
+    return clientUpdatedAt.add(const Duration(microseconds: 1));
   }
 
   List<Map<String, Object?>> get entriesJson =>

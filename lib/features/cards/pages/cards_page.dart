@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../../controllers/financial_month_controller.dart';
 import '../../../models/credit_card.dart';
@@ -29,10 +30,11 @@ class CardsPage extends StatelessWidget {
                 second.closingDay ?? 32,
               );
             });
+        final monthLabel = _monthLabel(controller.currentMonth.date);
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Cartões e faturas'),
+            title: Text('Cartões e faturas — $monthLabel'),
             actions: [
               IconButton(
                 onPressed: () => _addCard(context),
@@ -62,6 +64,7 @@ class CardsPage extends StatelessWidget {
 
                     return CreditCardTile(
                       card: card,
+                      invoiceMonth: controller.currentMonth.date,
                       invoiceInCents: controller.cardInvoiceTotalInCents(
                         invoice,
                       ),
@@ -117,7 +120,7 @@ class CardsPage extends StatelessWidget {
       return;
     }
 
-    await controller.updateEntry(
+    await controller.updateCardDetails(
       invoice.copyWith(
         name: draft.name,
         isActive: draft.isActive,
@@ -135,13 +138,23 @@ class CardsPage extends StatelessWidget {
     BuildContext context,
     FinancialEntry invoice,
   ) async {
+    final month = controller.currentMonth.date;
+    final automaticAmount = controller.purchaseInstallmentsForCardInMonth(
+      invoice,
+      month,
+    );
     final draft = await FinancialEntryDialog.show(
       context,
-      title: 'Atualizar valor manual de ${invoice.name}',
+      title: 'Editar fatura de ${_monthLabel(month)} • ${invoice.name}',
       initialName: invoice.name,
-      initialAmountInCents: invoice.amountInCents,
+      initialAmountInCents: invoice.amountInCents + automaticAmount,
       initialRecurring: true,
       allowNameEditing: false,
+      amountLabel: 'Total da fatura',
+      amountHelperText: automaticAmount == 0
+          ? null
+          : 'O total já inclui as compras e parcelas deste mês.',
+      minimumAmountInCents: automaticAmount,
     );
 
     if (draft == null) {
@@ -149,8 +162,13 @@ class CardsPage extends StatelessWidget {
     }
 
     await controller.updateEntry(
-      invoice.copyWith(amountInCents: draft.amountInCents),
+      invoice.copyWith(amountInCents: draft.amountInCents - automaticAmount),
     );
+  }
+
+  String _monthLabel(DateTime month) {
+    final formatted = DateFormat('MMMM/yyyy', 'pt_BR').format(month);
+    return toBeginningOfSentenceCase(formatted);
   }
 }
 

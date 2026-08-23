@@ -72,18 +72,23 @@ class NotificationPurchaseImportService {
     }
 
     try {
-      return await _channel.invokeMethod<bool>(
-            'removeNotifications',
-            {
-              'ids': [candidateId],
-            },
-          ) ??
+      return await _channel.invokeMethod<bool>('removeNotifications', {
+            'ids': [candidateId],
+          }) ??
           false;
     } on PlatformException {
       return false;
     } on MissingPluginException {
       return false;
     }
+  }
+
+  Future<bool> clearPending() async {
+    if (!_isAndroid) {
+      return true;
+    }
+
+    return _readBoolean('clearPendingNotifications');
   }
 
   Future<bool> _readBoolean(String method) async {

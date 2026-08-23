@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
@@ -7,6 +8,8 @@ import '../models/financial_entry.dart';
 import '../models/financial_month.dart';
 import '../models/purchase.dart';
 import '../models/purchase_record.dart';
+import '../models/pix_key.dart';
+import '../models/pix_settings.dart';
 import '../services/finance_service.dart';
 import '../services/sync_status_controller.dart';
 import '../shared/financial_month_repository.dart';
@@ -19,12 +22,14 @@ class FinancialMonthController extends ChangeNotifier {
   }
 
   static final DateTime firstMonth = DateTime(2026, 8);
+  static final DateTime lastFinancialMonth = DateTime(2099, 12);
 
   final FinancialMonthStore _store;
   late final StreamSubscription<FinancialMonth> _remoteSubscription;
   final Map<String, FinancialMonth> _loadedMonths = {};
 
   FinancialMonth? _currentMonth;
+  FinancialMonth? _settingsMonth;
   bool _isLoading = false;
   bool _isDisposed = false;
 
@@ -39,6 +44,9 @@ class FinancialMonthController extends ChangeNotifier {
   bool get isInitialized => _currentMonth != null;
   bool get isLoading => _isLoading;
   SyncStatusController? get syncStatus => _store.syncStatus;
+  PixSettings get pixSettings => PixSettings.fromFinancialMonth(_settingsMonth);
+  List<PixKey> get pixKeys => pixSettings.keys;
+  Uint8List? get pixQrCodeBytes => pixSettings.qrCodeBytes;
 
   List<FinancialMonth> get availableMonths {
     final months = _loadedMonths.values.toList()
@@ -160,6 +168,8 @@ class FinancialMonthController extends ChangeNotifier {
 
   bool get canGoToPreviousMonth =>
       isInitialized && currentMonth.date.isAfter(firstMonth);
+  bool get canGoToNextMonth =>
+      isInitialized && currentMonth.date.isBefore(lastFinancialMonth);
 
   Future<void> initialize({DateTime? now}) async {
     if (_isLoading || isInitialized) {
@@ -169,6 +179,7 @@ class FinancialMonthController extends ChangeNotifier {
     _setLoading(true);
 
     try {
+      await _store.prepare();
       var initialMonth = await _store.load(firstMonth.year, firstMonth.month);
 
       if (initialMonth == null) {
@@ -198,6 +209,10 @@ class FinancialMonthController extends ChangeNotifier {
       }
 
       _currentMonth = month;
+      _settingsMonth = await _store.load(
+        PixSettings.storageYear,
+        PixSettings.storageMonth,
+      );
       unawaited(_store.syncNow());
     } finally {
       _setLoading(false);
@@ -226,7 +241,7 @@ class FinancialMonthController extends ChangeNotifier {
   }
 
   Future<void> goToNextMonth() async {
-    if (_isLoading) {
+    if (_isLoading || !canGoToNextMonth) {
       return;
     }
 
@@ -246,6 +261,12 @@ class FinancialMonthController extends ChangeNotifier {
       return false;
     }
 
+    final requested = DateTime(year, month);
+    if (requested.isBefore(firstMonth) ||
+        requested.isAfter(lastFinancialMonth)) {
+      return false;
+    }
+
     final selectedMonth = await _store.load(year, month);
     if (selectedMonth == null) {
       return false;
@@ -258,10 +279,51 @@ class FinancialMonthController extends ChangeNotifier {
   }
 
   Future<void> updateEntry(FinancialEntry entry) async {
-    _currentMonth = currentMonth.replaceEntry(entry);
-    _rememberMonth(currentMonth);
-    notifyListeners();
-    await _store.save(currentMonth);
+    await _saveMonth(currentMonth.replaceEntry(entry));
+
+    if (entry.type == FinancialEntryType.expense ||
+        entry.type == FinancialEntryType.income) {
+      await _propagateRecurringEntry(entry);
+    }
+  }
+
+  Future<void> updateCardDetails(FinancialEntry updatedCard) async {
+    if (updatedCard.type != FinancialEntryType.cardInvoice) {
+      throw ArgumentError('O lançamento informado não é um cartão.');
+    }
+
+    final cardId = updatedCard.relatedCardId ?? updatedCard.id;
+    final currentDate = currentMonth.date;
+    final months = availableMonths
+        .where((month) => !month.date.isBefore(currentDate))
+        .toList();
+
+    for (final month in months) {
+      FinancialEntry? existingCard;
+      for (final candidate in month.entriesOfType(
+        FinancialEntryType.cardInvoice,
+      )) {
+        if ((candidate.relatedCardId ?? candidate.id) == cardId) {
+          existingCard = candidate;
+          break;
+        }
+      }
+      if (existingCard == null) {
+        continue;
+      }
+
+      final replacement = existingCard.copyWith(
+        name: updatedCard.name,
+        isActive: updatedCard.isActive,
+        cardBank: updatedCard.cardBank,
+        cardBrand: updatedCard.cardBrand,
+        cardLimitInCents: updatedCard.cardLimitInCents,
+        cardColor: updatedCard.cardColor,
+        closingDay: updatedCard.closingDay,
+        dueDay: updatedCard.dueDay,
+      );
+      await _saveMonth(month.replaceEntry(replacement));
+    }
   }
 
   Future<void> setEntryPaid(FinancialEntry entry, bool isPaid) async {
@@ -277,21 +339,212 @@ class FinancialMonthController extends ChangeNotifier {
     required int amountInCents,
     required FinancialEntryType type,
     bool isRecurring = false,
+    DateTime? recurrenceEndMonth,
     int? dueDay,
   }) async {
     final entry = FinancialEntry(
-      id: 'custom-${DateTime.now().microsecondsSinceEpoch}',
+      id: 'custom-${const Uuid().v4()}',
       name: name,
       amountInCents: amountInCents,
       type: type,
       isRecurring: isRecurring,
+      recurrenceEndMonth: isRecurring ? recurrenceEndMonth : null,
       dueDay: dueDay,
     );
 
-    _currentMonth = currentMonth.addEntry(entry);
-    _rememberMonth(currentMonth);
+    await _saveMonth(currentMonth.addEntry(entry));
+    if (isRecurring) {
+      await _propagateRecurringEntry(entry);
+    }
+  }
+
+  Future<void> _propagateRecurringEntry(FinancialEntry updated) async {
+    final currentDate = currentMonth.date;
+    final endMonth = updated.recurrenceEndMonth;
+
+    if (updated.isRecurring && endMonth != null) {
+      var date = DateTime(currentDate.year, currentDate.month + 1);
+      final inclusiveEnd = DateTime(endMonth.year, endMonth.month);
+      while (!date.isAfter(inclusiveEnd)) {
+        await _loadOrCreateMonth(date);
+        date = DateTime(date.year, date.month + 1);
+      }
+    }
+
+    final futureMonths = availableMonths
+        .where((month) => month.date.isAfter(currentDate))
+        .toList();
+    for (final month in futureMonths) {
+      FinancialEntry? existing;
+      for (final candidate in month.entries) {
+        if (candidate.id == updated.id) {
+          existing = candidate;
+          break;
+        }
+      }
+
+      final shouldExist = updated.recursInto(month.date);
+      if (!shouldExist && existing != null) {
+        await _saveMonth(month.removeEntry(updated.id));
+        continue;
+      }
+      if (!shouldExist) {
+        continue;
+      }
+
+      final replacement = (existing ?? updated).copyWith(
+        name: updated.name,
+        amountInCents: updated.amountInCents,
+        isRecurring: true,
+        isActive: updated.isActive,
+        isPaid: existing?.isPaid ?? false,
+        recurrenceEndMonth: updated.recurrenceEndMonth,
+        dueDay: updated.dueDay,
+      );
+      await _saveMonth(month.addEntry(replacement));
+    }
+  }
+
+  FinancialMonth? get previousFinancialMonth {
+    if (!canGoToPreviousMonth) {
+      return null;
+    }
+    final previousDate = DateTime(currentMonth.year, currentMonth.month - 1);
+    return financialMonthForDate(previousDate);
+  }
+
+  bool get hasPreviousBalanceTransfer => currentMonth.entries.any(
+    (entry) => entry.type == FinancialEntryType.previousBalance,
+  );
+
+  Future<bool> carryPreviousMonthBalance() async {
+    if (!canGoToPreviousMonth) {
+      return false;
+    }
+    final previousDate = DateTime(currentMonth.year, currentMonth.month - 1);
+    final previousMonth = await _loadMonth(
+      previousDate.year,
+      previousDate.month,
+    );
+    if (previousMonth == null) {
+      return false;
+    }
+
+    final sourceReference = 'previous-balance:${previousMonth.storageKey}';
+    FinancialEntry? existing;
+    for (final entry in currentMonth.entries) {
+      if (entry.type == FinancialEntryType.previousBalance &&
+          (entry.sourceReference == sourceReference ||
+              entry.sourceReference == null)) {
+        existing = entry;
+        break;
+      }
+    }
+    final entry = FinancialEntry(
+      id: existing?.id ?? 'previous-balance-${previousMonth.storageKey}',
+      name: 'Saldo restante de ${_monthLabel(previousMonth.date)}',
+      amountInCents: balanceInCentsForMonth(previousMonth),
+      type: FinancialEntryType.previousBalance,
+      sourceReference: sourceReference,
+    );
+    await _saveMonth(
+      existing == null
+          ? currentMonth.addEntry(entry)
+          : currentMonth.replaceEntry(entry),
+    );
+    return true;
+  }
+
+  Future<void> addPixKey({
+    required PixKeyType type,
+    required String value,
+    String title = '',
+  }) async {
+    final normalizedValue = value.trim();
+    if (pixKeys.any(
+      (key) => key.value.toLowerCase() == normalizedValue.toLowerCase(),
+    )) {
+      throw ArgumentError('Esta chave Pix já está cadastrada.');
+    }
+    final key = PixKey(
+      id: const Uuid().v4(),
+      type: type,
+      value: normalizedValue,
+      title: title.trim(),
+    );
+    await _savePixSettings(pixSettings.copyWith(keys: [...pixKeys, key]));
+  }
+
+  Future<void> updatePixKey(PixKey updatedKey) async {
+    if (pixKeys.any(
+      (key) =>
+          key.id != updatedKey.id &&
+          key.value.toLowerCase() == updatedKey.value.toLowerCase(),
+    )) {
+      throw ArgumentError('Esta chave Pix já está cadastrada.');
+    }
+    await _savePixSettings(
+      pixSettings.copyWith(
+        keys: pixKeys
+            .map((key) => key.id == updatedKey.id ? updatedKey : key)
+            .toList(),
+      ),
+    );
+  }
+
+  Future<void> removePixKey(String keyId) async {
+    await _savePixSettings(
+      pixSettings.copyWith(
+        keys: pixKeys.where((key) => key.id != keyId).toList(),
+      ),
+    );
+  }
+
+  Future<void> savePixQrCode({
+    required String title,
+    required Uint8List pngBytes,
+  }) async {
+    await _savePixSettings(
+      pixSettings.copyWith(
+        qrCodeTitle: title.trim(),
+        qrCodePngBase64: base64Encode(pngBytes),
+      ),
+    );
+  }
+
+  Future<void> removePixQrCode() async {
+    await _savePixSettings(
+      pixSettings.copyWith(qrCodeTitle: null, qrCodePngBase64: null),
+    );
+  }
+
+  Future<void> _savePixSettings(PixSettings settings) async {
+    final base = _settingsMonth ?? const PixSettings().toFinancialMonth();
+    final settingsEntry = settings.toFinancialMonth().entries.single;
+    _settingsMonth = base.entries.isEmpty
+        ? base.addEntry(settingsEntry)
+        : base.replaceEntry(settingsEntry);
     notifyListeners();
-    await _store.save(currentMonth);
+    await _store.save(_settingsMonth!);
+  }
+
+  Future<void> deleteAllData() async {
+    if (_isLoading) {
+      return;
+    }
+    _setLoading(true);
+    try {
+      await _store.deleteAll();
+      _loadedMonths.clear();
+      _settingsMonth = await _store.load(
+        PixSettings.storageYear,
+        PixSettings.storageMonth,
+      );
+      _currentMonth = buildInitialFinancialMonth();
+      notifyListeners();
+    } finally {
+      _setLoading(false);
+    }
   }
 
   Future<void> addCardInvoice({
@@ -525,6 +778,9 @@ class FinancialMonthController extends ChangeNotifier {
     if (targetDate.isBefore(firstMonth)) {
       throw ArgumentError('O FinFlow começa em agosto de 2026.');
     }
+    if (targetDate.isAfter(lastFinancialMonth)) {
+      throw ArgumentError('O período máximo do FinFlow é dezembro de 2099.');
+    }
 
     var month =
         await _loadMonth(firstMonth.year, firstMonth.month) ??
@@ -561,6 +817,22 @@ class FinancialMonthController extends ChangeNotifier {
       return;
     }
 
+    if (month.year == PixSettings.storageYear &&
+        month.month == PixSettings.storageMonth) {
+      if (_settingsMonth == null ||
+          !month.clientUpdatedAt.isBefore(_settingsMonth!.clientUpdatedAt)) {
+        final previousResetId = pixSettings.dataResetId;
+        _settingsMonth = month;
+        final remoteResetId = pixSettings.dataResetId;
+        if (remoteResetId != null && remoteResetId != previousResetId) {
+          _loadedMonths.clear();
+          _currentMonth = buildInitialFinancialMonth();
+        }
+        notifyListeners();
+      }
+      return;
+    }
+
     final loadedMonth = _loadedMonths[month.storageKey];
     if (loadedMonth != null &&
         month.clientUpdatedAt.isBefore(loadedMonth.clientUpdatedAt)) {
@@ -587,6 +859,25 @@ class FinancialMonthController extends ChangeNotifier {
     if (!_isDisposed) {
       notifyListeners();
     }
+  }
+
+  String _monthLabel(DateTime date) {
+    const names = [
+      '',
+      'Janeiro',
+      'Fevereiro',
+      'Março',
+      'Abril',
+      'Maio',
+      'Junho',
+      'Julho',
+      'Agosto',
+      'Setembro',
+      'Outubro',
+      'Novembro',
+      'Dezembro',
+    ];
+    return '${names[date.month]}/${date.year}';
   }
 
   @override

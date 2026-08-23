@@ -9,12 +9,14 @@ class FinancialEntryDraft {
   final int amountInCents;
   final bool isRecurring;
   final int? dueDay;
+  final DateTime? recurrenceEndMonth;
 
   const FinancialEntryDraft({
     required this.name,
     required this.amountInCents,
     required this.isRecurring,
     this.dueDay,
+    this.recurrenceEndMonth,
   });
 }
 
@@ -30,6 +32,11 @@ class FinancialEntryDialog extends StatefulWidget {
     this.showDueDay = false,
     this.initialDueDay,
     this.allowNegative = false,
+    this.recurrenceStartMonth,
+    this.initialRecurrenceEndMonth,
+    this.amountLabel = 'Valor',
+    this.amountHelperText,
+    this.minimumAmountInCents,
   });
 
   final String title;
@@ -41,6 +48,11 @@ class FinancialEntryDialog extends StatefulWidget {
   final bool showDueDay;
   final int? initialDueDay;
   final bool allowNegative;
+  final DateTime? recurrenceStartMonth;
+  final DateTime? initialRecurrenceEndMonth;
+  final String amountLabel;
+  final String? amountHelperText;
+  final int? minimumAmountInCents;
 
   static Future<FinancialEntryDraft?> show(
     BuildContext context, {
@@ -53,6 +65,11 @@ class FinancialEntryDialog extends StatefulWidget {
     bool showDueDay = false,
     int? initialDueDay,
     bool allowNegative = false,
+    DateTime? recurrenceStartMonth,
+    DateTime? initialRecurrenceEndMonth,
+    String amountLabel = 'Valor',
+    String? amountHelperText,
+    int? minimumAmountInCents,
   }) {
     return showDialog<FinancialEntryDraft>(
       context: context,
@@ -66,6 +83,11 @@ class FinancialEntryDialog extends StatefulWidget {
         showDueDay: showDueDay,
         initialDueDay: initialDueDay,
         allowNegative: allowNegative,
+        recurrenceStartMonth: recurrenceStartMonth,
+        initialRecurrenceEndMonth: initialRecurrenceEndMonth,
+        amountLabel: amountLabel,
+        amountHelperText: amountHelperText,
+        minimumAmountInCents: minimumAmountInCents,
       ),
     );
   }
@@ -80,6 +102,7 @@ class _FinancialEntryDialogState extends State<FinancialEntryDialog> {
   late final TextEditingController amountController;
   late final TextEditingController dueDayController;
   late bool isRecurring;
+  DateTime? recurrenceEndMonth;
 
   @override
   void initState() {
@@ -93,6 +116,7 @@ class _FinancialEntryDialogState extends State<FinancialEntryDialog> {
       text: widget.initialDueDay?.toString() ?? '',
     );
     isRecurring = widget.initialRecurring;
+    recurrenceEndMonth = widget.initialRecurrenceEndMonth;
   }
 
   @override
@@ -115,6 +139,7 @@ class _FinancialEntryDialogState extends State<FinancialEntryDialog> {
         amountInCents: amountInCents,
         isRecurring: isRecurring,
         dueDay: int.tryParse(dueDayController.text),
+        recurrenceEndMonth: isRecurring ? recurrenceEndMonth : null,
       ),
     );
   }
@@ -156,10 +181,11 @@ class _FinancialEntryDialogState extends State<FinancialEntryDialog> {
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9,.-]')),
                 ],
-                decoration: const InputDecoration(
-                  labelText: 'Valor',
+                decoration: InputDecoration(
+                  labelText: widget.amountLabel,
                   prefixText: 'R\$ ',
-                  border: OutlineInputBorder(),
+                  helperText: widget.amountHelperText,
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (value) {
                   final parsed = MoneyParser.parseToCents(value ?? '');
@@ -168,6 +194,15 @@ class _FinancialEntryDialogState extends State<FinancialEntryDialog> {
                   }
                   if (!widget.allowNegative && parsed < 0) {
                     return 'Use um valor igual ou maior que zero.';
+                  }
+                  final minimum = widget.minimumAmountInCents;
+                  if (minimum != null && parsed < minimum) {
+                    final formatter = NumberFormat.currency(
+                      locale: 'pt_BR',
+                      symbol: 'R\$',
+                    );
+                    return 'O total não pode ser menor que '
+                        '${formatter.format(minimum / 100)}.';
                   }
                   return null;
                 },
@@ -208,9 +243,40 @@ class _FinancialEntryDialogState extends State<FinancialEntryDialog> {
                   onChanged: (value) {
                     setState(() {
                       isRecurring = value ?? false;
+                      if (!isRecurring) {
+                        recurrenceEndMonth = null;
+                      }
                     });
                   },
                 ),
+                if (isRecurring)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.event_repeat_outlined),
+                    title: const Text('Repetir até'),
+                    subtitle: Text(
+                      recurrenceEndMonth == null
+                          ? 'Sem data final'
+                          : DateFormat(
+                              'MMMM/yyyy',
+                              'pt_BR',
+                            ).format(recurrenceEndMonth!),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _selectRecurrenceEndMonth,
+                  ),
+                if (isRecurring && recurrenceEndMonth != null)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        setState(() {
+                          recurrenceEndMonth = null;
+                        });
+                      },
+                      child: const Text('Sem data final'),
+                    ),
+                  ),
               ],
             ],
           ),
@@ -224,5 +290,24 @@ class _FinancialEntryDialogState extends State<FinancialEntryDialog> {
         FilledButton(onPressed: save, child: const Text('Salvar')),
       ],
     );
+  }
+
+  Future<void> _selectRecurrenceEndMonth() async {
+    final start = widget.recurrenceStartMonth ?? DateTime.now();
+    final firstMonth = DateTime(start.year, start.month);
+    final initial = recurrenceEndMonth ?? DateTime(start.year, start.month + 1);
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: initial.isBefore(firstMonth) ? firstMonth : initial,
+      firstDate: firstMonth,
+      lastDate: DateTime(2099, 12, 31),
+      helpText: 'Selecione o último mês da repetição',
+      fieldLabelText: 'Último mês',
+    );
+    if (selected != null && mounted) {
+      setState(() {
+        recurrenceEndMonth = DateTime(selected.year, selected.month);
+      });
+    }
   }
 }

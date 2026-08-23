@@ -1,5 +1,7 @@
 import 'package:finflow/app/app.dart';
 import 'package:finflow/controllers/financial_month_controller.dart';
+import 'package:finflow/models/financial_entry.dart';
+import 'package:finflow/models/financial_month.dart';
 import 'package:finflow/shared/financial_month_repository.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +9,28 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets('exibe o resumo financeiro de agosto de 2026', (tester) async {
-    final controller = FinancialMonthController(MemoryFinancialMonthStore());
+    final store = MemoryFinancialMonthStore();
+    await store.save(
+      FinancialMonth(
+        year: 2026,
+        month: 8,
+        entries: const [
+          FinancialEntry(
+            id: 'income-test',
+            name: 'Receita de teste',
+            amountInCents: 487557,
+            type: FinancialEntryType.income,
+          ),
+          FinancialEntry(
+            id: 'expense-test',
+            name: 'Despesa de teste',
+            amountInCents: 575927,
+            type: FinancialEntryType.expense,
+          ),
+        ],
+      ),
+    );
+    final controller = FinancialMonthController(store);
     await controller.initialize(now: DateTime(2026, 8, 5));
     addTearDown(controller.dispose);
 
@@ -51,7 +74,14 @@ void main() {
     await tester.pumpWidget(FinFlowApp(financialMonthController: controller));
     await tester.pumpAndSettle();
 
-    for (final label in ['Início', 'Cartões', 'Compra', 'Histórico', 'Mais']) {
+    for (final label in [
+      'Início',
+      'Cartões',
+      'Compra',
+      'Histórico',
+      'Chaves Pix',
+      'Mais',
+    ]) {
       expect(find.text(label), findsOneWidget);
     }
     expect(find.text('Parcelas'), findsNothing);
@@ -95,5 +125,43 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('exige duas confirmações antes de apagar todos os dados', (
+    tester,
+  ) async {
+    final controller = FinancialMonthController(MemoryFinancialMonthStore());
+    await controller.initialize(now: DateTime(2026, 8, 5));
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(FinFlowApp(financialMonthController: controller));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Mais'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Apagar meus dados do FinFlow'),
+      300,
+    );
+    await tester.tap(find.text('Apagar meus dados do FinFlow'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Apagar todos os dados do FinFlow?'), findsOneWidget);
+    expect(find.textContaining('não pode ser desfeita'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Continuar'));
+    await tester.pumpAndSettle();
+
+    final destructiveButton = find.widgetWithText(
+      FilledButton,
+      'Apagar definitivamente',
+    );
+    expect(tester.widget<FilledButton>(destructiveButton).onPressed, isNull);
+    await tester.enterText(find.byType(TextField), 'APAGAR');
+    await tester.pump();
+    expect(tester.widget<FilledButton>(destructiveButton).onPressed, isNotNull);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Cancelar'));
+    await tester.pumpAndSettle();
+    expect(controller.isInitialized, isTrue);
   });
 }

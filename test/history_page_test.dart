@@ -1,5 +1,7 @@
 import 'package:finflow/controllers/financial_month_controller.dart';
 import 'package:finflow/features/history/pages/history_page.dart';
+import 'package:finflow/models/financial_entry.dart';
+import 'package:finflow/models/financial_month.dart';
 import 'package:finflow/shared/financial_month_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -7,7 +9,26 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets('exclui uma compra pelo botão do histórico', (tester) async {
-    final controller = FinancialMonthController(MemoryFinancialMonthStore());
+    final store = MemoryFinancialMonthStore();
+    await store.save(
+      FinancialMonth(
+        year: 2026,
+        month: 8,
+        entries: const [
+          FinancialEntry(
+            id: 'card-test',
+            name: 'Cartão de teste',
+            amountInCents: 0,
+            type: FinancialEntryType.cardInvoice,
+            isRecurring: true,
+            relatedCardId: 'test',
+            closingDay: 5,
+            dueDay: 10,
+          ),
+        ],
+      ),
+    );
+    final controller = FinancialMonthController(store);
     await controller.initialize(now: DateTime(2026, 8, 5));
     addTearDown(controller.dispose);
     await controller.addPurchase(

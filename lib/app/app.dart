@@ -122,7 +122,7 @@ class _FinFlowAppState extends State<FinFlowApp> {
     final controller = FinancialMonthController(
       SupabaseFinancialMonthStore(
         client: client,
-        localStore: HiveFinancialMonthStore(),
+        localStore: HiveFinancialMonthStore(userId: userId),
       ),
     );
 

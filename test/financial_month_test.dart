@@ -2,47 +2,47 @@ import 'package:finflow/controllers/financial_month_controller.dart';
 import 'package:finflow/models/financial_entry.dart';
 import 'package:finflow/models/financial_month.dart';
 import 'package:finflow/shared/financial_month_repository.dart';
-import 'package:finflow/shared/initial_financial_data.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('mês financeiro inicial', () {
-    test('reproduz os totais da planilha de agosto de 2026', () {
-      final month = buildInitialFinancialMonth();
+  group('mês financeiro', () {
+    test('calcula os totais somente a partir dos lançamentos salvos', () {
+      final month = _sampleMonth();
 
       expect(month.totalDebtInCents, 575927);
       expect(month.totalAvailableInCents, 487557);
       expect(month.balanceInCents, -88370);
     });
 
-    test('cria o próximo mês com recorrentes e saldo anterior', () {
-      final august = buildInitialFinancialMonth();
+    test('cria o próximo mês somente com lançamentos recorrentes', () {
+      final august = _sampleMonth();
       final september = august.createNextMonth();
 
       expect(september.year, 2026);
       expect(september.month, 9);
 
-      final previousBalance = september.entries.singleWhere(
-        (entry) => entry.type == FinancialEntryType.previousBalance,
+      expect(
+        september.entriesOfType(FinancialEntryType.previousBalance),
+        isEmpty,
       );
-      expect(previousBalance.amountInCents, -88370);
 
       final invoices = september.entriesOfType(FinancialEntryType.cardInvoice);
-      expect(invoices, hasLength(8));
+      expect(invoices, hasLength(1));
       expect(invoices.every((entry) => entry.amountInCents == 0), isTrue);
 
       expect(
-        september.entries.any((entry) => entry.name == 'Energisa'),
+        september.entries.any((entry) => entry.name == 'Despesa recorrente'),
         isTrue,
       );
       expect(
-        september.entries.any((entry) => entry.name == 'Tomografia Alícia'),
+        september.entries.any((entry) => entry.name == 'Despesa avulsa'),
         isFalse,
       );
     });
 
     test('salva a atualização de uma fatura', () async {
       final store = MemoryFinancialMonthStore();
+      await store.save(_sampleMonth());
       final controller = FinancialMonthController(store);
       await controller.initialize(now: DateTime(2026, 8, 5));
 
@@ -60,6 +60,7 @@ void main() {
 
     test('marcar como pago retira somente do total pendente', () async {
       final store = MemoryFinancialMonthStore();
+      await store.save(_sampleMonth());
       final controller = FinancialMonthController(store);
       await controller.initialize(now: DateTime(2026, 8, 5));
 
@@ -85,7 +86,7 @@ void main() {
     });
 
     test('novo mês redefine pagamentos recorrentes como pendentes', () {
-      final august = buildInitialFinancialMonth();
+      final august = _sampleMonth();
       final paidPicPay = august.entries.singleWhere(
         (entry) => entry.id == 'card-picpay',
       );
@@ -103,6 +104,7 @@ void main() {
 
     test('exclui uma receita antiga, mesmo sem prefixo custom', () async {
       final store = MemoryFinancialMonthStore();
+      await store.save(_sampleMonth());
       final controller = FinancialMonthController(store);
       await controller.initialize(now: DateTime(2026, 8, 5));
 
@@ -162,5 +164,67 @@ void main() {
       expect(restored.clientUpdatedAt, timestamp);
       expect(restored.storageKey, '2026-08');
     });
+
+    test('gera uma versão monotônica mesmo com relógio remoto no futuro', () {
+      final remoteTimestamp = DateTime.utc(2026, 9, 15, 12);
+      final september = FinancialMonth(
+        year: 2026,
+        month: 9,
+        entries: const [
+          FinancialEntry(
+            id: 'card-picpay',
+            name: 'PicPay',
+            amountInCents: 10000,
+            type: FinancialEntryType.cardInvoice,
+            isRecurring: true,
+          ),
+        ],
+        clientUpdatedAt: remoteTimestamp,
+      );
+
+      final edited = september.replaceEntry(
+        september.entries.single.copyWith(amountInCents: 25000),
+      );
+
+      expect(edited.clientUpdatedAt.isAfter(remoteTimestamp), isTrue);
+      expect(edited.entries.single.amountInCents, 25000);
+    });
   });
+}
+
+FinancialMonth _sampleMonth() {
+  return FinancialMonth(
+    year: 2026,
+    month: 8,
+    entries: const [
+      FinancialEntry(
+        id: 'income-salary',
+        name: 'Receita recorrente',
+        amountInCents: 487557,
+        type: FinancialEntryType.income,
+        isRecurring: true,
+      ),
+      FinancialEntry(
+        id: 'card-picpay',
+        name: 'PicPay',
+        amountInCents: 535927,
+        type: FinancialEntryType.cardInvoice,
+        isRecurring: true,
+        relatedCardId: 'picpay',
+      ),
+      FinancialEntry(
+        id: 'expense-recurring',
+        name: 'Despesa recorrente',
+        amountInCents: 30000,
+        type: FinancialEntryType.expense,
+        isRecurring: true,
+      ),
+      FinancialEntry(
+        id: 'expense-once',
+        name: 'Despesa avulsa',
+        amountInCents: 10000,
+        type: FinancialEntryType.expense,
+      ),
+    ],
+  );
 }

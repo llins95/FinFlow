@@ -42,7 +42,7 @@ class HomePage extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '${_greeting()}, Murilo 👋',
+                      '${_greeting()} 👋',
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(fontWeight: FontWeight.bold),
                     ),
@@ -69,7 +69,8 @@ class HomePage extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               FinancialEntrySection(
-                title: 'Faturas dos cartões',
+                title:
+                    'Faturas dos cartões — ${_monthLabel(financialMonth.date)}',
                 icon: Icons.credit_card,
                 entries: cardInvoices,
                 amountInCentsFor: controller.cardInvoiceTotalInCents,
@@ -91,6 +92,21 @@ class HomePage extends StatelessWidget {
                 onDelete: (entry) => _deleteEntry(context, entry),
               ),
               const SizedBox(height: 16),
+              if (controller.canGoToPreviousMonth) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _carryPreviousBalance(context),
+                    icon: const Icon(Icons.savings_outlined),
+                    label: Text(
+                      controller.hasPreviousBalanceTransfer
+                          ? 'Atualizar saldo do mês anterior'
+                          : 'Adicionar saldo do mês anterior',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               FinancialEntrySection(
                 title: 'Receitas e saldo anterior',
                 icon: Icons.savings_outlined,
@@ -122,19 +138,36 @@ class HomePage extends StatelessWidget {
   }
 
   Future<void> _editEntry(BuildContext context, FinancialEntry entry) async {
+    final isCardInvoice = entry.type == FinancialEntryType.cardInvoice;
+    final automaticAmount = isCardInvoice
+        ? controller.purchaseInstallmentsForCardInMonth(
+            entry,
+            controller.currentMonth.date,
+          )
+        : 0;
     final draft = await FinancialEntryDialog.show(
       context,
-      title: entry.type == FinancialEntryType.cardInvoice
-          ? 'Atualizar valor manual de ${entry.name}'
+      title: isCardInvoice
+          ? 'Editar fatura de ${_monthLabel(controller.currentMonth.date)} '
+                '• ${entry.name}'
           : 'Atualizar ${entry.name}',
       initialName: entry.name,
-      initialAmountInCents: entry.amountInCents,
+      initialAmountInCents: entry.amountInCents + automaticAmount,
       initialRecurring: entry.isRecurring,
+      initialRecurrenceEndMonth: entry.recurrenceEndMonth,
+      recurrenceStartMonth: controller.currentMonth.date,
       initialDueDay: entry.dueDay,
-      allowNameEditing: entry.type != FinancialEntryType.cardInvoice,
-      showRecurringOption: entry.type == FinancialEntryType.expense,
+      allowNameEditing: !isCardInvoice,
+      showRecurringOption:
+          entry.type == FinancialEntryType.expense ||
+          entry.type == FinancialEntryType.income,
       showDueDay: entry.type == FinancialEntryType.expense,
       allowNegative: entry.type == FinancialEntryType.previousBalance,
+      amountLabel: isCardInvoice ? 'Total da fatura' : 'Valor',
+      amountHelperText: isCardInvoice && automaticAmount > 0
+          ? 'O total já inclui as compras e parcelas deste mês.'
+          : null,
+      minimumAmountInCents: isCardInvoice ? automaticAmount : null,
     );
 
     if (draft == null) {
@@ -144,8 +177,9 @@ class HomePage extends StatelessWidget {
     await controller.updateEntry(
       entry.copyWith(
         name: draft.name,
-        amountInCents: draft.amountInCents,
+        amountInCents: draft.amountInCents - automaticAmount,
         isRecurring: draft.isRecurring,
+        recurrenceEndMonth: draft.recurrenceEndMonth,
         dueDay: draft.dueDay,
       ),
     );
@@ -161,6 +195,7 @@ class HomePage extends StatelessWidget {
       title: title,
       showRecurringOption: true,
       showDueDay: type == FinancialEntryType.expense,
+      recurrenceStartMonth: controller.currentMonth.date,
     );
 
     if (draft == null) {
@@ -172,6 +207,7 @@ class HomePage extends StatelessWidget {
       amountInCents: draft.amountInCents,
       type: type,
       isRecurring: draft.isRecurring,
+      recurrenceEndMonth: draft.recurrenceEndMonth,
       dueDay: draft.dueDay,
     );
   }
@@ -202,6 +238,27 @@ class HomePage extends StatelessWidget {
 
   Future<void> _togglePaid(FinancialEntry entry) {
     return controller.setEntryPaid(entry, !entry.isPaid);
+  }
+
+  Future<void> _carryPreviousBalance(BuildContext context) async {
+    final updated = await controller.carryPreviousMonthBalance();
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          updated
+              ? 'Saldo do mês anterior adicionado sem duplicação.'
+              : 'Não foi possível localizar o mês anterior.',
+        ),
+      ),
+    );
+  }
+
+  String _monthLabel(DateTime month) {
+    final formatted = DateFormat('MMMM/yyyy', 'pt_BR').format(month);
+    return toBeginningOfSentenceCase(formatted);
   }
 }
 
@@ -237,7 +294,9 @@ class _MonthSelector extends StatelessWidget {
             ),
           ),
           IconButton(
-            onPressed: controller.goToNextMonth,
+            onPressed: controller.canGoToNextMonth
+                ? controller.goToNextMonth
+                : null,
             tooltip: 'Próximo mês',
             icon: const Icon(Icons.chevron_right),
           ),

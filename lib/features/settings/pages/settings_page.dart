@@ -9,7 +9,10 @@ import '../../../controllers/app_update_controller.dart';
 import '../../../controllers/financial_month_controller.dart';
 import '../../../controllers/theme_controller.dart';
 import '../../../models/app_update.dart';
+import '../../../services/notification_purchase_import_service.dart';
 import '../../../services/sync_status_controller.dart';
+import '../../../shared/purchase_repository.dart';
+import '../../pix/widgets/pix_qr_code_dialog.dart';
 import '../../purchase/pages/notification_import_page.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -45,7 +48,9 @@ class SettingsPage extends StatelessWidget {
                 ListTile(
                   leading: const Icon(FluentIcons.person_24_regular),
                   title: const Text('Conta pessoal'),
-                  subtitle: Text(user?.email ?? 'Uso individual de Murilo'),
+                  subtitle: Text(
+                    user?.email ?? 'Dados armazenados neste aparelho',
+                  ),
                 ),
                 const Divider(height: 1),
                 if (syncStatus == null)
@@ -106,6 +111,8 @@ class SettingsPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
+          _PixQrCodeCard(controller: controller),
+          const SizedBox(height: 16),
           _ThemeModeCard(controller: themeController),
           const SizedBox(height: 16),
           _AppUpdateCard(controller: appUpdateController),
@@ -117,6 +124,11 @@ class SettingsPage extends StatelessWidget {
               label: const Text('Sair da conta'),
             ),
           ],
+          const SizedBox(height: 24),
+          _DeleteAllDataCard(
+            controller: controller,
+            onDelete: () => _deleteAllData(context),
+          ),
         ],
       ),
     );
@@ -147,6 +159,214 @@ class SettingsPage extends StatelessWidget {
     if (shouldSignOut == true) {
       await supabaseClient?.auth.signOut();
     }
+  }
+
+  Future<void> _deleteAllData(BuildContext context) async {
+    final acknowledged = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: Icon(
+          FluentIcons.warning_24_regular,
+          color: Theme.of(dialogContext).colorScheme.error,
+        ),
+        title: const Text('Apagar todos os dados do FinFlow?'),
+        content: const Text(
+          'Receitas, despesas, cartões, faturas, compras, histórico, '
+          'chaves Pix e QR Code serão apagados. Quando a sincronização '
+          'estiver ativa, a exclusão também será aplicada à sua conta e '
+          'aos outros dispositivos. O tema e os arquivos necessários ao '
+          'funcionamento do aplicativo serão preservados.\n\n'
+          'Esta ação não pode ser desfeita.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Continuar'),
+          ),
+        ],
+      ),
+    );
+    if (acknowledged != true || !context.mounted) {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _DeleteConfirmationDialog(),
+    );
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await controller.deleteAllData();
+      await PurchaseRepository.clear();
+      await const NotificationPurchaseImportService().clearPending();
+      if (context.mounted) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Todos os dados do FinFlow foram apagados.'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Não foi possível concluir a exclusão. Confira a conexão '
+              'e tente novamente; os dados locais não foram apagados.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+}
+
+class _PixQrCodeCard extends StatelessWidget {
+  const _PixQrCodeCard({required this.controller});
+
+  final FinancialMonthController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) => Card(
+        margin: EdgeInsets.zero,
+        child: ListTile(
+          leading: const Icon(FluentIcons.qr_code_24_regular),
+          title: const Text('QR Code Pix personalizado'),
+          subtitle: Text(
+            controller.pixQrCodeBytes == null
+                ? 'Cadastre uma imagem PNG de 1000 × 1000 px.'
+                : controller.pixSettings.qrCodeTitle ?? 'Imagem cadastrada',
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => PixQrCodeDialog.show(context, controller: controller),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteAllDataCard extends StatelessWidget {
+  const _DeleteAllDataCard({required this.controller, required this.onDelete});
+
+  final FinancialMonthController controller;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final errorColor = Theme.of(context).colorScheme.error;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(FluentIcons.delete_24_regular, color: errorColor),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Apagar todos os dados',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Reinicie o FinFlow do zero. Duas confirmações serão exigidas.',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(foregroundColor: errorColor),
+              onPressed: controller.isLoading ? null : onDelete,
+              icon: const Icon(FluentIcons.delete_24_regular),
+              label: const Text('Apagar meus dados do FinFlow'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteConfirmationDialog extends StatefulWidget {
+  const _DeleteConfirmationDialog();
+
+  @override
+  State<_DeleteConfirmationDialog> createState() =>
+      _DeleteConfirmationDialogState();
+}
+
+class _DeleteConfirmationDialogState extends State<_DeleteConfirmationDialog> {
+  final TextEditingController _controller = TextEditingController();
+  bool _canDelete = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Confirmação final'),
+      content: SizedBox(
+        width: 440,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Digite APAGAR para confirmar a exclusão definitiva.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              autocorrect: false,
+              decoration: const InputDecoration(labelText: 'Confirmação'),
+              onChanged: (value) {
+                setState(() => _canDelete = value.trim() == 'APAGAR');
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+          onPressed: _canDelete ? () => Navigator.pop(context, true) : null,
+          child: const Text('Apagar definitivamente'),
+        ),
+      ],
+    );
   }
 }
 
@@ -341,9 +561,10 @@ class _AppUpdateCard extends StatelessWidget {
       AppUpdateStatus.available => 'Uma nova versão está disponível.',
       AppUpdateStatus.waitingForInstallPermission =>
         'Permita que o FinFlow instale apps e volte para continuar.',
-      AppUpdateStatus.downloading => isWindows
-          ? 'Baixando e validando o pacote do Windows...'
-          : 'Baixando e validando o APK...',
+      AppUpdateStatus.downloading =>
+        isWindows
+            ? 'Baixando e validando o pacote do Windows...'
+            : 'Baixando e validando o APK...',
       AppUpdateStatus.openingInstaller =>
         isWindows
             ? 'Reiniciando o FinFlow para concluir a atualização...'

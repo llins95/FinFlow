@@ -151,7 +151,13 @@ class FinancialEntrySection extends StatelessWidget {
       details.add('Vence dia ${entry.dueDay}');
     }
     if (entry.isRecurring && entry.type != FinancialEntryType.cardInvoice) {
-      details.add('Recorrente');
+      final endMonth = entry.recurrenceEndMonth;
+      details.add(
+        endMonth == null
+            ? 'Recorrente sem data final'
+            : 'Recorrente até '
+                  '${DateFormat('MMMM/yyyy', 'pt_BR').format(endMonth)}',
+      );
     }
     if (entry.type == FinancialEntryType.cardInvoice &&
         amountInCentsFor != null) {

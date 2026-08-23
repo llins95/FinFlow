@@ -110,6 +110,10 @@ internal object NotificationImportStore {
         )
     }
 
+    fun clear(context: Context) {
+        preferences(context).edit().remove(PENDING_KEY).apply()
+    }
+
     private fun readObjects(context: Context): List<JSONObject> {
         val raw = preferences(context).getString(PENDING_KEY, null)
             ?: return emptyList()

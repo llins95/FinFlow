@@ -88,9 +88,7 @@ void main() {
 
     test('adiciona e persiste um cartão novo', () async {
       final store = MemoryFinancialMonthStore();
-      await store.save(
-        FinancialMonth(year: 2026, month: 8, entries: const []),
-      );
+      await store.save(FinancialMonth(year: 2026, month: 8, entries: const []));
       final controller = FinancialMonthController(store);
       await controller.initialize(now: DateTime(2026, 8, 5));
 
@@ -112,6 +110,47 @@ void main() {
       expect(savedCard.amountInCents, 0);
 
       controller.dispose();
+    });
+
+    test('propaga o limite editado para os meses já carregados', () async {
+      final store = MemoryFinancialMonthStore();
+      await store.save(
+        FinancialMonth(
+          year: 2026,
+          month: 8,
+          entries: const [
+            FinancialEntry(
+              id: 'card-demo',
+              name: 'Cartão de teste',
+              amountInCents: 2500,
+              type: FinancialEntryType.cardInvoice,
+              isRecurring: true,
+              relatedCardId: 'demo',
+              cardLimitInCents: 100000,
+              closingDay: 5,
+              dueDay: 10,
+            ),
+          ],
+        ),
+      );
+      final controller = FinancialMonthController(store);
+      await controller.initialize(now: DateTime(2026, 10, 5));
+      addTearDown(controller.dispose);
+      expect(await controller.goToMonth(2026, 8), isTrue);
+
+      final augustCard = controller.activeCardInvoices.single;
+      await controller.updateCardDetails(
+        augustCard.copyWith(cardLimitInCents: 350000),
+      );
+
+      for (var month = 8; month <= 10; month++) {
+        final saved = await store.load(2026, month);
+        final card = saved!
+            .entriesOfType(FinancialEntryType.cardInvoice)
+            .single;
+        expect(card.cardLimitInCents, 350000);
+        expect(card.amountInCents, month == 8 ? 2500 : 0);
+      }
     });
   });
 }
