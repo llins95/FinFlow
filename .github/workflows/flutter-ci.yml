@@ -236,10 +236,13 @@ jobs:
           printf '%s\n' \
             "FinFlow ${version_name} (${version_code})" \
             "" \
-            "Nova identidade visual aplicada ao Android e Windows." \
-            "APK Android assinado e validado automaticamente." \
-            "Pacote Windows 11 x64 com atualização dentro do aplicativo." \
-            "Android e Windows validam os downloads por SHA-256." \
+            "Repetição de receitas e despesas com mês final definido." \
+            "Faturas com mês explícito e correção da edição do PicPay em setembro." \
+            "Edição do limite dos cartões e transferência do saldo do mês anterior." \
+            "Nova aba Chaves Pix e QR Code Pix PNG personalizado." \
+            "Exclusão total protegida e armazenamento offline isolado por usuário." \
+            "Sincronização e comportamento equivalentes no Android e Windows." \
+            "Instaladores validados automaticamente com checksums SHA-256." \
             > release-notes.md
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
