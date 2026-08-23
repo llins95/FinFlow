@@ -28,7 +28,8 @@ Windows.
 - histórico e criação do próximo mês com itens recorrentes;
 - repetição de receitas e despesas com mês final opcional;
 - identificação explícita do mês de cada fatura;
-- transferência idempotente do saldo restante do mês anterior;
+- preservação do valor de saldo anterior ao navegar para os meses seguintes;
+- miniatura do cartão com a cor cadastrada e a marca da bandeira nas faturas;
 - gerenciamento de chaves Pix e QR Code PNG personalizado;
 - exclusão total protegida por duas confirmações;
 - migração automática das compras antigas salvas no Hive;
@@ -39,7 +40,9 @@ Windows.
 O master do ícone está em
 `assets/branding/finflow-icon-master-v2.png`. O símbolo combina a letra
 **F** com três barras de crescimento e usa o gradiente azul, ciano e verde da
-identidade do FinFlow.
+identidade do FinFlow. No Android, o símbolo do ícone adaptativo permanece
+dentro da área segura para não ser ampliado ou cortado pelo formato escolhido
+no aparelho.
 
 Para regenerar todos os tamanhos do Android e o `.ico` multirresolução do
 Windows:

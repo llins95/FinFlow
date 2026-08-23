@@ -196,13 +196,17 @@ class FinancialMonthController extends ChangeNotifier {
 
       var month = initialMonth;
       while (month.date.isBefore(targetMonth)) {
+        final previousMonth = month;
         final nextDate = DateTime(month.year, month.month + 1);
         final storedNextMonth = await _store.load(
           nextDate.year,
           nextDate.month,
         );
-        month = storedNextMonth ?? month.createNextMonth();
-        if (storedNextMonth == null) {
+        month = _preservePreviousBalance(
+          previousMonth: previousMonth,
+          targetMonth: storedNextMonth ?? previousMonth.createNextMonth(),
+        );
+        if (storedNextMonth == null || !identical(month, storedNextMonth)) {
           await _store.save(month);
         }
         _rememberMonth(month);
@@ -246,9 +250,13 @@ class FinancialMonthController extends ChangeNotifier {
     }
 
     final nextDate = DateTime(currentMonth.year, currentMonth.month + 1);
-    final nextMonth =
+    final storedNextMonth =
         await _store.load(nextDate.year, nextDate.month) ??
         currentMonth.createNextMonth();
+    final nextMonth = _preservePreviousBalance(
+      previousMonth: currentMonth,
+      targetMonth: storedNextMonth,
+    );
 
     await _store.save(nextMonth);
     _currentMonth = nextMonth;
@@ -431,6 +439,7 @@ class FinancialMonthController extends ChangeNotifier {
     }
 
     final sourceReference = 'previous-balance:${previousMonth.storageKey}';
+    final carriedEntry = _previousBalanceEntry(previousMonth);
     FinancialEntry? existing;
     for (final entry in currentMonth.entries) {
       if (entry.type == FinancialEntryType.previousBalance &&
@@ -442,8 +451,11 @@ class FinancialMonthController extends ChangeNotifier {
     }
     final entry = FinancialEntry(
       id: existing?.id ?? 'previous-balance-${previousMonth.storageKey}',
-      name: 'Saldo restante de ${_monthLabel(previousMonth.date)}',
-      amountInCents: balanceInCentsForMonth(previousMonth),
+      name:
+          carriedEntry?.name ??
+          'Saldo restante de ${_monthLabel(previousMonth.date)}',
+      amountInCents:
+          carriedEntry?.amountInCents ?? balanceInCentsForMonth(previousMonth),
       type: FinancialEntryType.previousBalance,
       sourceReference: sourceReference,
     );
@@ -788,14 +800,25 @@ class FinancialMonthController extends ChangeNotifier {
     _rememberMonth(month);
 
     while (month.date.isBefore(targetDate)) {
+      final previousMonth = month;
       final nextDate = DateTime(month.year, month.month + 1);
       final storedNextMonth = await _loadMonth(nextDate.year, nextDate.month);
       if (storedNextMonth != null) {
-        month = storedNextMonth;
+        month = _preservePreviousBalance(
+          previousMonth: previousMonth,
+          targetMonth: storedNextMonth,
+        );
+        if (!identical(month, storedNextMonth)) {
+          await _store.save(month);
+          _rememberMonth(month);
+        }
         continue;
       }
 
-      month = month.createNextMonth();
+      month = _preservePreviousBalance(
+        previousMonth: previousMonth,
+        targetMonth: previousMonth.createNextMonth(),
+      );
       await _store.save(month);
       _rememberMonth(month);
     }
@@ -852,6 +875,43 @@ class FinancialMonthController extends ChangeNotifier {
 
   void _rememberMonth(FinancialMonth month) {
     _loadedMonths[month.storageKey] = month;
+  }
+
+  FinancialMonth _preservePreviousBalance({
+    required FinancialMonth previousMonth,
+    required FinancialMonth targetMonth,
+  }) {
+    final source = _previousBalanceEntry(previousMonth);
+    if (source == null) {
+      return targetMonth;
+    }
+
+    final existing = _previousBalanceEntry(targetMonth);
+    if (existing != null &&
+        existing.name == source.name &&
+        existing.amountInCents == source.amountInCents) {
+      return targetMonth;
+    }
+
+    final preserved = FinancialEntry(
+      id: existing?.id ?? source.id,
+      name: source.name,
+      amountInCents: source.amountInCents,
+      type: FinancialEntryType.previousBalance,
+      sourceReference: existing?.sourceReference ?? source.sourceReference,
+    );
+    return existing == null
+        ? targetMonth.addEntry(preserved)
+        : targetMonth.replaceEntry(preserved);
+  }
+
+  FinancialEntry? _previousBalanceEntry(FinancialMonth month) {
+    for (final entry in month.entries) {
+      if (entry.type == FinancialEntryType.previousBalance) {
+        return entry;
+      }
+    }
+    return null;
   }
 
   void _setLoading(bool value) {

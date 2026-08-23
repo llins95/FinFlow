@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../models/credit_card.dart';
+import '../../../shared/mini_credit_card.dart';
 
 class CreditCardTile extends StatelessWidget {
   const CreditCardTile({
@@ -37,10 +38,12 @@ class CreditCardTile extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Color(card.color),
-                  child: const Icon(Icons.credit_card, color: Colors.white),
+                MiniCreditCard(
+                  key: ValueKey('card-tile-mini-card-${card.id}'),
+                  color: card.color,
+                  brand: card.brand,
+                  width: 54,
+                  height: 34,
                 ),
                 const SizedBox(width: 12),
                 Expanded(

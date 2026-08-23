@@ -78,6 +78,13 @@ class FinancialMonth {
 
   FinancialMonth createNextMonth() {
     final nextDate = DateTime(year, month + 1);
+    FinancialEntry? previousBalance;
+    for (final entry in entries) {
+      if (entry.type == FinancialEntryType.previousBalance) {
+        previousBalance = entry;
+        break;
+      }
+    }
     final recurringEntries = entries
         .where(
           (entry) =>
@@ -101,7 +108,7 @@ class FinancialMonth {
     return FinancialMonth(
       year: nextDate.year,
       month: nextDate.month,
-      entries: recurringEntries,
+      entries: [if (previousBalance != null) previousBalance, ...recurringEntries],
     );
   }
 

@@ -123,6 +123,79 @@ void main() {
   });
 
   test(
+    'preserva o saldo anterior de agosto ao abrir setembro já existente',
+    () async {
+      final store = MemoryFinancialMonthStore();
+      await store.save(
+        FinancialMonth(
+          year: 2026,
+          month: 8,
+          entries: const [
+            FinancialEntry(
+              id: 'previous-balance-august',
+              name: 'Saldo do mês anterior',
+              amountInCents: 35819,
+              type: FinancialEntryType.previousBalance,
+            ),
+            FinancialEntry(
+              id: 'expense-august',
+              name: 'Despesa de agosto',
+              amountInCents: 24189,
+              type: FinancialEntryType.expense,
+            ),
+          ],
+        ),
+      );
+      await store.save(
+        FinancialMonth(
+          year: 2026,
+          month: 9,
+          entries: const [
+            FinancialEntry(
+              id: 'previous-balance-2026-08',
+              name: 'Saldo restante de Agosto/2026',
+              amountInCents: 11630,
+              type: FinancialEntryType.previousBalance,
+              sourceReference: 'previous-balance:2026-08',
+            ),
+          ],
+        ),
+      );
+
+      final controller = FinancialMonthController(store);
+      addTearDown(controller.dispose);
+      await controller.initialize(now: DateTime(2026, 9, 5));
+
+      expect(controller.currentMonth.storageKey, '2026-09');
+      expect(
+        controller.currentMonth
+            .entriesOfType(FinancialEntryType.previousBalance)
+            .single
+            .amountInCents,
+        35819,
+      );
+
+      expect(await controller.goToPreviousMonth(), isTrue);
+      expect(
+        controller.currentMonth
+            .entriesOfType(FinancialEntryType.previousBalance)
+            .single
+            .amountInCents,
+        35819,
+      );
+
+      await controller.goToNextMonth();
+      expect(
+        controller.currentMonth
+            .entriesOfType(FinancialEntryType.previousBalance)
+            .single
+            .amountInCents,
+        35819,
+      );
+    },
+  );
+
+  test(
     'apaga lançamentos e configurações Pix, mantendo estado funcional',
     () async {
       final store = MemoryFinancialMonthStore();

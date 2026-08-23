@@ -236,11 +236,9 @@ jobs:
           printf '%s\n' \
             "FinFlow ${version_name} (${version_code})" \
             "" \
-            "Repetição de receitas e despesas com mês final definido." \
-            "Faturas com mês explícito e correção da edição do PicPay em setembro." \
-            "Edição do limite dos cartões e transferência do saldo do mês anterior." \
-            "Nova aba Chaves Pix e QR Code Pix PNG personalizado." \
-            "Exclusão total protegida e armazenamento offline isolado por usuário." \
+            "Saldo do mês anterior preservado ao navegar entre agosto e setembro." \
+            "Ícone adaptativo Android enquadrado sem ampliação ou recorte." \
+            "Mini cartões nas faturas com a cor cadastrada e a marca da bandeira." \
             "Sincronização e comportamento equivalentes no Android e Windows." \
             "Instaladores validados automaticamente com checksums SHA-256." \
             > release-notes.md

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../models/financial_entry.dart';
+import '../../../shared/mini_credit_card.dart';
+import '../../../utils/card_mapper.dart';
 
 class FinancialEntrySection extends StatelessWidget {
   const FinancialEntrySection({
@@ -83,9 +85,19 @@ class FinancialEntrySection extends StatelessWidget {
             else
               ...entries.map((entry) {
                 final details = _subtitle(entry, currency);
+                final card = entry.type == FinancialEntryType.cardInvoice
+                    ? creditCardFromInvoice(entry)
+                    : null;
 
                 return ListTile(
                   contentPadding: const EdgeInsets.only(left: 4, right: 0),
+                  leading: card == null
+                      ? null
+                      : MiniCreditCard(
+                          key: ValueKey('mini-card-${entry.id}'),
+                          color: card.color,
+                          brand: card.brand,
+                        ),
                   title: Text(
                     entry.name,
                     style: entry.isPaid

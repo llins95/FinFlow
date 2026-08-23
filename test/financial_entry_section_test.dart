@@ -57,4 +57,39 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('paid-toggle-expense-test')));
     expect(toggled, expense);
   });
+
+  testWidgets('mostra mini cartão com cor e bandeira ao lado da fatura', (
+    tester,
+  ) async {
+    const invoice = FinancialEntry(
+      id: 'invoice-test',
+      name: 'Cartão principal',
+      amountInCents: 10000,
+      type: FinancialEntryType.cardInvoice,
+      cardBrand: 'Mastercard',
+      cardColor: 0xFF8A05BE,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FinancialEntrySection(
+            title: 'Faturas dos cartões',
+            icon: Icons.credit_card,
+            entries: const [invoice],
+            onEdit: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('mini-card-invoice-test')),
+      findsOneWidget,
+    );
+    expect(
+      find.bySemanticsLabel('Mini cartão, bandeira Mastercard'),
+      findsOneWidget,
+    );
+  });
 }
