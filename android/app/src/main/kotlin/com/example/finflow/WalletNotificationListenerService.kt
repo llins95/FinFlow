@@ -1,16 +1,28 @@
 package com.example.finflow
 
 import android.app.Notification
-import android.content.Context
+import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 class WalletNotificationListenerService : NotificationListenerService() {
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        runCatching {
+            activeNotifications?.forEach(::captureNotification)
+        }
+    }
+
     override fun onNotificationPosted(notification: StatusBarNotification) {
+        captureNotification(notification)
+    }
+
+    private fun captureNotification(notification: StatusBarNotification) {
         if (notification.packageName !in SUPPORTED_PACKAGES) {
             return
         }
@@ -24,19 +36,12 @@ class WalletNotificationListenerService : NotificationListenerService() {
         }
 
         val extras = notification.notification.extras
-        val title = extras
-            .getCharSequence(Notification.EXTRA_TITLE)
-            ?.toString()
-            ?.trim()
-            .orEmpty()
-        val text = sequenceOf(
-            Notification.EXTRA_BIG_TEXT,
-            Notification.EXTRA_TEXT,
-            Notification.EXTRA_SUB_TEXT,
+        val title = firstText(
+            extras,
+            Notification.EXTRA_TITLE_BIG,
+            Notification.EXTRA_TITLE,
         )
-            .mapNotNull { key -> extras.getCharSequence(key)?.toString()?.trim() }
-            .firstOrNull { value -> value.isNotEmpty() }
-            .orEmpty()
+        val text = notificationText(extras)
 
         if (title.isEmpty() && text.isEmpty()) {
             return
@@ -62,13 +67,43 @@ class WalletNotificationListenerService : NotificationListenerService() {
         )
     }
 
+    private fun notificationText(extras: Bundle): String {
+        val values = mutableListOf<String>()
+        listOf(
+            Notification.EXTRA_BIG_TEXT,
+            Notification.EXTRA_TEXT,
+            Notification.EXTRA_SUB_TEXT,
+            Notification.EXTRA_SUMMARY_TEXT,
+            Notification.EXTRA_INFO_TEXT,
+        ).forEach { key ->
+            extras.getCharSequence(key)
+                ?.toString()
+                ?.trim()
+                ?.takeIf(String::isNotEmpty)
+                ?.let(values::add)
+        }
+        extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+            ?.map { value -> value.toString().trim() }
+            ?.filter(String::isNotEmpty)
+            ?.let(values::addAll)
+
+        return values.distinct().joinToString(" • ")
+    }
+
+    private fun firstText(extras: Bundle, vararg keys: String): String {
+        return keys.asSequence()
+            .mapNotNull { key -> extras.getCharSequence(key)?.toString()?.trim() }
+            .firstOrNull(String::isNotEmpty)
+            .orEmpty()
+    }
+
     companion object {
-        private const val MAX_TEXT_LENGTH = 320
+        private const val MAX_TEXT_LENGTH = 640
         private val SUPPORTED_PACKAGES = setOf(
             "com.google.android.apps.walletnfcrel",
         )
         private val BRL_AMOUNT = Regex(
-            "R\\$\\s*\\d[\\d.]*,\\d{2}",
+            "R\\$[\\s\\u00A0]*\\d[\\d.]*,\\d{2}",
             RegexOption.IGNORE_CASE,
         )
     }
