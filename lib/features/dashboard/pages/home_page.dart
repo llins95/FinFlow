@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../controllers/financial_month_controller.dart';
 import '../../../models/financial_entry.dart';
+import '../../../shared/balance_details_dialog.dart';
 import '../../finance/widgets/financial_entry_dialog.dart';
 import 'purchase_search_page.dart';
 import '../widgets/financial_entry_section.dart';
@@ -344,6 +345,7 @@ class _FinancialOverview extends StatelessWidget {
               color: Colors.blue,
             ),
             _SummaryCard(
+              key: const ValueKey('home-balance-details'),
               width: cardWidth,
               label: hasSurplus ? 'Sobra' : 'Falta',
               value: currency.format(balanceInCents.abs() / 100),
@@ -351,6 +353,11 @@ class _FinancialOverview extends StatelessWidget {
                   ? Icons.check_circle_outline
                   : Icons.error_outline,
               color: hasSurplus ? Colors.green : Colors.redAccent,
+              onTap: () => BalanceDetailsDialog.show(
+                context,
+                controller: controller,
+                month: month,
+              ),
             ),
           ],
         );
@@ -525,11 +532,13 @@ class _UpcomingDueDates extends StatelessWidget {
 
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({
+    super.key,
     required this.width,
     required this.label,
     required this.value,
     required this.icon,
     required this.color,
+    this.onTap,
   });
 
   final double width;
@@ -537,6 +546,7 @@ class _SummaryCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -544,37 +554,46 @@ class _SummaryCard extends StatelessWidget {
       width: width,
       child: Card(
         margin: EdgeInsets.zero,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: color.withValues(alpha: 0.15),
-                foregroundColor: color,
-                child: Icon(icon),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      value,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: color.withValues(alpha: 0.15),
+                  foregroundColor: color,
+                  child: Icon(icon),
                 ),
-              ),
-            ],
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        value,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (onTap != null)
+                  Icon(
+                    Icons.chevron_right,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+              ],
+            ),
           ),
         ),
       ),

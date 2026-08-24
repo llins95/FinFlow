@@ -22,7 +22,7 @@ class NotificationPurchaseCandidate {
 
 class NotificationPurchaseParser {
   static final RegExp _amountPattern = RegExp(
-    r'R\$\s*([0-9][0-9.]*,[0-9]{2})',
+    r'R\$[\s\u00A0]*([0-9][0-9.]*,[0-9]{2})',
     caseSensitive: false,
   );
 
