@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../controllers/financial_month_controller.dart';
 import '../../../models/financial_month.dart';
 import '../../../models/purchase_record.dart';
+import '../../../shared/balance_details_dialog.dart';
 import '../widgets/purchase_delete_confirmation.dart';
 import 'edit_purchase_page.dart';
 
@@ -84,6 +85,7 @@ class _FinancialMonthHistory extends StatelessWidget {
             const SizedBox(height: 20),
             for (final month in months)
               _FinancialMonthCard(
+                controller: controller,
                 month: month,
                 totalPendingInCents: controller.totalPendingInCentsForMonth(
                   month,
@@ -102,6 +104,7 @@ class _FinancialMonthHistory extends StatelessWidget {
 
 class _FinancialMonthCard extends StatelessWidget {
   const _FinancialMonthCard({
+    required this.controller,
     required this.month,
     required this.totalPendingInCents,
     required this.balanceInCents,
@@ -109,6 +112,7 @@ class _FinancialMonthCard extends StatelessWidget {
     required this.onOpen,
   });
 
+  final FinancialMonthController controller;
   final FinancialMonth month;
   final int totalPendingInCents;
   final int balanceInCents;
@@ -196,10 +200,16 @@ class _FinancialMonthCard extends StatelessWidget {
                       value: currency.format(month.totalAvailableInCents / 100),
                     ),
                     _HistoryValue(
+                      key: ValueKey('history-balance-details-${month.storageKey}'),
                       width: width,
                       label: hasSurplus ? 'Sobra' : 'Falta',
                       value: currency.format(balanceInCents.abs() / 100),
                       color: balanceColor,
+                      onTap: () => BalanceDetailsDialog.show(
+                        context,
+                        controller: controller,
+                        month: month,
+                      ),
                     ),
                   ],
                 );
@@ -227,48 +237,65 @@ class _FinancialMonthCard extends StatelessWidget {
 
 class _HistoryValue extends StatelessWidget {
   const _HistoryValue({
+    super.key,
     required this.width,
     required this.label,
     required this.value,
     this.color,
+    this.onTap,
   });
 
   final double width;
   final String label;
   final String value;
   final Color? color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: width,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Theme.of(
-            context,
-          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+      child: Material(
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        value,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: color,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+                if (onTap != null)
+                  Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+              ],
+            ),
           ),
         ),
       ),
