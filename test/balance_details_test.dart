@@ -23,6 +23,12 @@ void main() {
             type: FinancialEntryType.income,
           ),
           FinancialEntry(
+            id: 'previous-balance',
+            name: 'Saldo de julho',
+            amountInCents: 1500,
+            type: FinancialEntryType.previousBalance,
+          ),
+          FinancialEntry(
             id: 'expense-pending',
             name: 'Conta de luz',
             amountInCents: 8000,
@@ -52,6 +58,37 @@ void main() {
     );
   }
 
+  testWidgets('mostra o que compõe o total a pagar na tela Início', (
+    tester,
+  ) async {
+    final controller = await buildController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(app(HomePage(controller: controller)));
+    await tester.tap(find.byKey(const ValueKey('home-payable-details')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('O que compõe o total a pagar?'), findsOneWidget);
+    expect(find.text('Pendências incluídas'), findsOneWidget);
+    expect(find.text('Conta de luz'), findsWidgets);
+  });
+
+  testWidgets('mostra o que compõe o total disponível na tela Início', (
+    tester,
+  ) async {
+    final controller = await buildController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(app(HomePage(controller: controller)));
+    await tester.tap(find.byKey(const ValueKey('home-available-details')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('O que compõe o total disponível?'), findsOneWidget);
+    expect(find.text('Valores incluídos'), findsOneWidget);
+    expect(find.text('Salário'), findsWidgets);
+    expect(find.text('Saldo de julho'), findsWidgets);
+  });
+
   testWidgets('mostra o que compõe a falta na tela Início', (tester) async {
     final controller = await buildController();
     addTearDown(controller.dispose);
@@ -61,8 +98,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('O que está faltando?'), findsOneWidget);
-    expect(find.text('Conta de luz'), findsOneWidget);
-    expect(find.text('Internet'), findsOneWidget);
+    expect(find.text('Conta de luz'), findsWidgets);
+    expect(find.text('Internet'), findsWidgets);
     expect(find.text('O que compõe os compromissos'), findsOneWidget);
   });
 
@@ -80,7 +117,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('O que está faltando?'), findsOneWidget);
-    expect(find.text('Conta de luz'), findsOneWidget);
-    expect(find.text('Internet'), findsOneWidget);
+    expect(find.text('Conta de luz'), findsWidgets);
+    expect(find.text('Internet'), findsWidgets);
   });
 }
