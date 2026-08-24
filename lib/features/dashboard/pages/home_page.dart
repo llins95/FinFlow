@@ -331,18 +331,32 @@ class _FinancialOverview extends StatelessWidget {
           runSpacing: 12,
           children: [
             _SummaryCard(
+              key: const ValueKey('home-payable-details'),
               width: cardWidth,
               label: 'Total a pagar',
               value: currency.format(totalDebtInCents / 100),
               icon: Icons.arrow_upward_rounded,
               color: Colors.orange,
+              onTap: () => BalanceDetailsDialog.show(
+                context,
+                controller: controller,
+                month: month,
+                type: FinancialSummaryDetailsType.payable,
+              ),
             ),
             _SummaryCard(
+              key: const ValueKey('home-available-details'),
               width: cardWidth,
               label: 'Total disponível',
               value: currency.format(month.totalAvailableInCents / 100),
               icon: Icons.arrow_downward_rounded,
               color: Colors.blue,
+              onTap: () => BalanceDetailsDialog.show(
+                context,
+                controller: controller,
+                month: month,
+                type: FinancialSummaryDetailsType.available,
+              ),
             ),
             _SummaryCard(
               key: const ValueKey('home-balance-details'),
