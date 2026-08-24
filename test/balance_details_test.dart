@@ -12,10 +12,10 @@ void main() {
   Future<FinancialMonthController> buildController() async {
     final store = MemoryFinancialMonthStore();
     await store.save(
-      const FinancialMonth(
+      FinancialMonth(
         year: 2026,
         month: 8,
-        entries: [
+        entries: const [
           FinancialEntry(
             id: 'income',
             name: 'Salário',
