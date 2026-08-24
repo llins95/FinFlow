@@ -262,6 +262,14 @@ class _NotificationImportPageState extends State<NotificationImportPage>
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       IconButton(
+                        key: ValueKey(
+                          'confirm-wallet-purchase-${candidate.id}',
+                        ),
+                        tooltip: 'Confirmar compra',
+                        onPressed: () => Navigator.pop(context, candidate),
+                        icon: const Icon(Icons.check_circle_outline),
+                      ),
+                      IconButton(
                         tooltip: 'Descartar',
                         onPressed: () => unawaited(_discard(candidate)),
                         icon: const Icon(Icons.delete_outline),
