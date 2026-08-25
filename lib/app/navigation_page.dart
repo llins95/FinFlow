@@ -13,7 +13,6 @@ import '../features/history/pages/history_page.dart';
 import '../features/pix/pages/pix_keys_page.dart';
 import '../features/purchase/pages/purchase_page.dart';
 import '../features/settings/pages/settings_page.dart';
-import '../features/settings/pages/utility_expenses_page.dart';
 import '../services/app_update_service.dart';
 import '../services/billing_notification_scheduler.dart';
 
@@ -121,21 +120,12 @@ class _NavigationPageState extends State<NavigationPage>
           : const SizedBox.shrink(),
     );
     final page = IndexedStack(index: currentIndex, children: pages);
-    final utilityButton = currentIndex == 5
-        ? FloatingActionButton.extended(
-            key: const ValueKey('open-utility-expenses'),
-            onPressed: _openUtilityExpenses,
-            icon: const Icon(Icons.water_drop_outlined),
-            label: const Text('Despesas Água/Luz'),
-          )
-        : null;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth >= 900) {
           final extended = constraints.maxWidth >= 1180;
           return Scaffold(
-            floatingActionButton: utilityButton,
             body: Row(
               children: [
                 NavigationRail(
@@ -176,7 +166,6 @@ class _NavigationPageState extends State<NavigationPage>
 
         return Scaffold(
           body: page,
-          floatingActionButton: utilityButton,
           bottomNavigationBar: NavigationBar(
             selectedIndex: currentIndex,
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -222,17 +211,6 @@ class _NavigationPageState extends State<NavigationPage>
       ),
       _ => const SizedBox.shrink(),
     };
-  }
-
-  void _openUtilityExpenses() {
-    final storageScope = widget.supabaseClient?.auth.currentUser?.id ?? 'local';
-    unawaited(
-      Navigator.of(context).push<void>(
-        MaterialPageRoute(
-          builder: (context) => UtilityExpensesPage(storageScope: storageScope),
-        ),
-      ),
-    );
   }
 
   Future<void> _checkForUpdatesAtStartup() async {
