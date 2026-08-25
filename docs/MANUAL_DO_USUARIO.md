@@ -33,7 +33,7 @@ No Android, as áreas principais aparecem na barra inferior. No Windows, em tela
 - **Compra:** registra uma compra, simula parcelas e permite importar sugestões detectadas da Carteira do Google no Android.
 - **Histórico:** consulta meses anteriores e compras já registradas.
 - **Chaves Pix:** guarda chaves Pix e um QR Code Pix personalizado.
-- **Mais:** conta, sincronização, Carteira do Google, segurança, aparência, atualização e exclusão dos dados.
+- **Mais:** conta, sincronização, Carteira do Google, Despesas Água/Luz, segurança, aparência, atualização e exclusão dos dados.
 
 ---
 
@@ -209,6 +209,9 @@ Esta função existe somente no Android.
 ### Atualizar
 Ícone de seta circular. Relê as sugestões guardadas no aparelho.
 
+### Confirmar compra
+Ícone de confirmação ao lado da lixeira. Seleciona a sugestão e retorna à tela de adicionar compra com os dados preenchidos para revisão.
+
 ### Descartar
 Ícone de lixeira ao lado da sugestão. Remove aquela sugestão somente do aparelho, sem criar compra no FinFlow.
 
@@ -296,6 +299,17 @@ Mostra a situação da sincronização. Quando disponível, o botão de sincroni
 ### Compras pela Carteira do Google
 No Android, abre a mesma tela de compras detectadas disponível na aba Compra. No Windows, informa que a função não está disponível.
 
+### Despesas Água/Luz
+Abre um controle doméstico independente para acompanhar as contas de água e energia elétrica por mês e por ano.
+
+Na parte superior, use as setas para escolher o **ano**. Depois escolha uma das duas abas:
+- **Água:** mostra os valores de água dos 12 meses daquele ano.
+- **Luz:** mostra os valores de energia dos 12 meses daquele ano.
+
+Para cadastrar ou alterar um valor, toque no mês desejado, informe o valor da conta e toque em **Salvar**. Um valor anual é exibido no final da lista somente para facilitar a consulta dentro dessa própria função.
+
+**Importante:** Água/Luz é um controle isolado. Esses valores não entram em **Total a pagar**, **Total disponível**, **Sobra/Falta**, despesas, faturas, cartões, compras nem histórico financeiro. Eles só aparecem dentro de **Despesas Água/Luz**.
+
 ### Segurança
 Lembra que cada conta acessa seus próprios dados e que o FinFlow não guarda número completo do cartão nem CVV.
 
@@ -323,14 +337,14 @@ No Android, o sistema pode pedir permissão para instalar atualização provenie
 Encerra a sessão atual. Os dados já salvos localmente permanecem no aparelho e podem voltar a sincronizar no próximo login.
 
 ### Apagar meus dados do FinFlow
-Apaga receitas, despesas, cartões, faturas, compras, histórico, chaves Pix e QR Code.
+Apaga receitas, despesas, cartões, faturas, compras, histórico, chaves Pix, QR Code e o controle local de Água/Luz.
 
 Por segurança:
 1. o FinFlow mostra uma primeira confirmação;
 2. depois exige que seja digitado **APAGAR**;
 3. somente então executa a exclusão.
 
-Quando a sincronização está ativa, a exclusão também é aplicada à conta e aos outros dispositivos. Essa ação não pode ser desfeita.
+Quando a sincronização está ativa, a exclusão também é aplicada à conta e aos outros dispositivos para os dados sincronizados. Essa ação não pode ser desfeita.
 
 ---
 
@@ -358,5 +372,7 @@ Diferenças principais:
 - **Carteira do Google:** detecção de compras somente no Android.
 - **Atualização:** o processo de instalação é diferente em cada sistema.
 - **Navegação:** Android usa normalmente a barra inferior; Windows usa barra lateral quando existe espaço suficiente.
+
+O controle **Despesas Água/Luz** existe nas duas plataformas e permanece separado dos cálculos financeiros.
 
 As compras confirmadas no Android podem ser sincronizadas e visualizadas no Windows usando a mesma conta.
