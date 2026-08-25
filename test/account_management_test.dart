@@ -31,12 +31,18 @@ class _FakeUpdateGateway implements AppUpdateGateway {
   Future<void> downloadAndInstall(AppUpdateInfo update) async {}
 }
 
+SupabaseClient _testClient() {
+  return SupabaseClient(
+    'https://example.supabase.co',
+    'test-anon-key',
+    authOptions: const AuthClientOptions(autoRefreshToken: false),
+  );
+}
+
 void main() {
   testWidgets('abre a autenticação diretamente em criar conta', (tester) async {
-    final client = SupabaseClient(
-      'https://example.supabase.co',
-      'test-anon-key',
-    );
+    final client = _testClient();
+    addTearDown(client.auth.stopAutoRefresh);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -71,10 +77,8 @@ void main() {
     final updateController = AppUpdateController(_FakeUpdateGateway());
     addTearDown(updateController.dispose);
 
-    final client = SupabaseClient(
-      'https://example.supabase.co',
-      'test-anon-key',
-    );
+    final client = _testClient();
+    addTearDown(client.auth.stopAutoRefresh);
 
     var signInAnotherCalls = 0;
     var createAccountCalls = 0;
