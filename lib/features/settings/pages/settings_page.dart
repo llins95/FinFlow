@@ -10,10 +10,13 @@ import '../../../controllers/financial_month_controller.dart';
 import '../../../controllers/theme_controller.dart';
 import '../../../models/app_update.dart';
 import '../../../services/notification_purchase_import_service.dart';
+import '../../../services/supabase_household_utility_store.dart';
 import '../../../services/sync_status_controller.dart';
+import '../../../shared/household_utility_repository.dart';
 import '../../../shared/purchase_repository.dart';
 import '../../pix/widgets/pix_qr_code_dialog.dart';
 import '../../purchase/pages/notification_import_page.dart';
+import 'household_utilities_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({
@@ -99,6 +102,26 @@ class SettingsPage extends StatelessWidget {
                       : null,
                 ),
                 const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.water_drop_outlined),
+                  title: const Text('Despesas Água/Luz'),
+                  subtitle: const Text(
+                    'Controle residencial separado. Estes valores não alteram '
+                    'nenhum total financeiro do FinFlow.',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => unawaited(
+                    Navigator.of(context).push<void>(
+                      MaterialPageRoute(
+                        builder: (context) => HouseholdUtilitiesPage(
+                          supabaseClient: supabaseClient,
+                          userId: user?.id,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
                 const ListTile(
                   leading: Icon(Icons.security_outlined),
                   title: Text('Segurança'),
@@ -172,11 +195,11 @@ class SettingsPage extends StatelessWidget {
         title: const Text('Apagar todos os dados do FinFlow?'),
         content: const Text(
           'Receitas, despesas, cartões, faturas, compras, histórico, '
-          'chaves Pix e QR Code serão apagados. Quando a sincronização '
-          'estiver ativa, a exclusão também será aplicada à sua conta e '
-          'aos outros dispositivos. O tema e os arquivos necessários ao '
-          'funcionamento do aplicativo serão preservados.\n\n'
-          'Esta ação não pode ser desfeita.',
+          'despesas residenciais de Água/Luz, chaves Pix e QR Code serão '
+          'apagados. Quando a sincronização estiver ativa, a exclusão também '
+          'será aplicada à sua conta e aos outros dispositivos. O tema e os '
+          'arquivos necessários ao funcionamento do aplicativo serão '
+          'preservados.\n\nEsta ação não pode ser desfeita.',
         ),
         actions: [
           TextButton(
@@ -207,10 +230,15 @@ class SettingsPage extends StatelessWidget {
     }
 
     final messenger = ScaffoldMessenger.of(context);
+    final userId = supabaseClient?.auth.currentUser?.id;
     try {
       await controller.deleteAllData();
       await PurchaseRepository.clear();
       await const NotificationPurchaseImportService().clearPending();
+      await HiveHouseholdUtilityStore.clearForUser(userId);
+      if (userId != null) {
+        await SupabaseHouseholdUtilityStore.clearQueuedForUser(userId);
+      }
       if (context.mounted) {
         messenger.showSnackBar(
           const SnackBar(
