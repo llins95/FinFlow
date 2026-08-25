@@ -12,8 +12,10 @@ import '../../../models/app_update.dart';
 import '../../../services/notification_purchase_import_service.dart';
 import '../../../services/sync_status_controller.dart';
 import '../../../shared/purchase_repository.dart';
+import '../../../shared/utility_expenses_repository.dart';
 import '../../pix/widgets/pix_qr_code_dialog.dart';
 import '../../purchase/pages/notification_import_page.dart';
+import 'utility_expenses_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({
@@ -99,6 +101,28 @@ class SettingsPage extends StatelessWidget {
                       : null,
                 ),
                 const Divider(height: 1),
+                ListTile(
+                  key: const ValueKey('settings-utility-expenses'),
+                  leading: const Icon(Icons.water_drop_outlined),
+                  title: const Text('Despesas Água/Luz'),
+                  subtitle: const Text(
+                    'Controle mensal separado. Não altera nenhum total financeiro.',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    final scope = user?.id ?? 'local';
+                    unawaited(
+                      Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (context) => UtilityExpensesPage(
+                            storageScope: scope,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
                 const ListTile(
                   leading: Icon(Icons.security_outlined),
                   title: Text('Segurança'),
@@ -172,10 +196,11 @@ class SettingsPage extends StatelessWidget {
         title: const Text('Apagar todos os dados do FinFlow?'),
         content: const Text(
           'Receitas, despesas, cartões, faturas, compras, histórico, '
-          'chaves Pix e QR Code serão apagados. Quando a sincronização '
-          'estiver ativa, a exclusão também será aplicada à sua conta e '
-          'aos outros dispositivos. O tema e os arquivos necessários ao '
-          'funcionamento do aplicativo serão preservados.\n\n'
+          'chaves Pix, QR Code e o controle de Água/Luz serão apagados. '
+          'Quando a sincronização estiver ativa, a exclusão dos dados '
+          'financeiros também será aplicada à sua conta e aos outros '
+          'dispositivos. O tema e os arquivos necessários ao funcionamento '
+          'do aplicativo serão preservados.\n\n'
           'Esta ação não pode ser desfeita.',
         ),
         actions: [
@@ -208,8 +233,10 @@ class SettingsPage extends StatelessWidget {
 
     final messenger = ScaffoldMessenger.of(context);
     try {
+      final utilityScope = supabaseClient?.auth.currentUser?.id ?? 'local';
       await controller.deleteAllData();
       await PurchaseRepository.clear();
+      await UtilityExpensesRepository(scope: utilityScope).clearScope();
       await const NotificationPurchaseImportService().clearPending();
       if (context.mounted) {
         messenger.showSnackBar(
