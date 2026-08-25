@@ -48,6 +48,7 @@ class _FinFlowAppState extends State<FinFlowApp> {
   String? _startupError;
   int _sessionGeneration = 0;
   bool _legacyImportCompleted = false;
+  bool _createAccountOnNextAuth = false;
 
   bool get _usesInjectedController => widget.financialMonthController != null;
 
@@ -111,6 +112,9 @@ class _FinFlowAppState extends State<FinFlowApp> {
       setState(() {
         _isStarting = session != null;
         _startupError = null;
+        if (session != null) {
+          _createAccountOnNextAuth = false;
+        }
       });
     }
 
@@ -150,6 +154,30 @@ class _FinFlowAppState extends State<FinFlowApp> {
         _startupError = error.toString();
         _isStarting = false;
       });
+    }
+  }
+
+  Future<void> _openAccountAccess({required bool createAccount}) async {
+    final client = widget.supabaseClient;
+    if (client == null) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _createAccountOnNextAuth = createAccount;
+      });
+    }
+
+    try {
+      await client.auth.signOut();
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _createAccountOnNextAuth = false;
+        });
+      }
+      rethrow;
     }
   }
 
@@ -236,7 +264,10 @@ class _FinFlowAppState extends State<FinFlowApp> {
 
     final controller = _controller;
     if (controller == null) {
-      return AuthPage(client: client);
+      return AuthPage(
+        client: client,
+        initialCreateAccount: _createAccountOnNextAuth,
+      );
     }
 
     return NavigationPage(
@@ -244,6 +275,8 @@ class _FinFlowAppState extends State<FinFlowApp> {
       themeController: _themeController,
       supabaseClient: client,
       appUpdateController: widget.appUpdateController,
+      onSignInAnotherAccount: () => _openAccountAccess(createAccount: false),
+      onCreateAccount: () => _openAccountAccess(createAccount: true),
     );
   }
 }
