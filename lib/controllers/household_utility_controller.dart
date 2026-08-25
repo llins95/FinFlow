@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/household_utility_expense.dart';
@@ -110,7 +112,7 @@ class HouseholdUtilityController extends ChangeNotifier {
 
   @override
   void dispose() {
-    store.dispose();
+    unawaited(store.dispose());
     super.dispose();
   }
 }
