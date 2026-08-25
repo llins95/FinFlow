@@ -50,7 +50,8 @@ class UtilityExpensesRepository {
     return Hive.openBox<dynamic>(boxName);
   }
 
-  String _key(int year, int month) => '$scope:$year-${month.toString().padLeft(2, '0')}';
+  String _key(int year, int month) =>
+      '$scope:$year-${month.toString().padLeft(2, '0')}';
 
   Future<UtilityExpenseMonth> load(int year, int month) async {
     final box = await _box();
@@ -70,5 +71,15 @@ class UtilityExpensesRepository {
   Future<void> save(UtilityExpenseMonth value) async {
     final box = await _box();
     await box.put(_key(value.year, value.month), value.toMap());
+  }
+
+  Future<void> clearScope() async {
+    final box = await _box();
+    final prefix = '$scope:';
+    final keys = box.keys
+        .whereType<String>()
+        .where((key) => key.startsWith(prefix))
+        .toList(growable: false);
+    await box.deleteAll(keys);
   }
 }
