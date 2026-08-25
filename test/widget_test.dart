@@ -143,7 +143,12 @@ void main() {
       OutlinedButton,
       'Apagar meus dados do FinFlow',
     );
-    await tester.ensureVisible(deleteButton);
+    await tester.scrollUntilVisible(
+      deleteButton,
+      400,
+      scrollable: find.byType(Scrollable).first,
+      maxScrolls: 20,
+    );
     await tester.pumpAndSettle();
     await tester.tap(deleteButton);
     await tester.pumpAndSettle();
