@@ -163,4 +163,15 @@ class SupabaseHouseholdUtilityStore implements HouseholdUtilityStore {
     await localStore.deleteAll();
     await _queue!.deleteAll(_queueKeys.toList());
   }
+
+  static Future<void> clearQueuedForUser(String userId) async {
+    final box = Hive.isBoxOpen(queueBoxName)
+        ? Hive.box<dynamic>(queueBoxName)
+        : await Hive.openBox<dynamic>(queueBoxName);
+    final prefix = '$userId/';
+    final keys = box.keys
+        .where((key) => key.toString().startsWith(prefix))
+        .toList();
+    await box.deleteAll(keys);
+  }
 }
