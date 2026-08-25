@@ -5,7 +5,7 @@ Este manual descreve as funções disponíveis no FinFlow para Android e Windows
 ## 1. Entrar e criar conta
 
 ### E-mail
-Informe o e-mail da sua conta FinFlow. A mesma conta pode ser usada no Android e no Windows para sincronizar os dados.
+Informe o e-mail da sua conta FinFlow. A mesma conta pode ser usada no Android e no Windows para sincronizar os dados financeiros compatíveis com sincronização.
 
 ### Senha
 Informe sua senha. O ícone de olho mostra ou oculta a senha digitada.
@@ -33,7 +33,7 @@ No Android, as áreas principais aparecem na barra inferior. No Windows, em tela
 - **Compra:** registra uma compra, simula parcelas e permite importar sugestões detectadas da Carteira do Google no Android.
 - **Histórico:** consulta meses anteriores e compras já registradas.
 - **Chaves Pix:** guarda chaves Pix e um QR Code Pix personalizado.
-- **Mais:** conta, sincronização, Carteira do Google, segurança, aparência, atualização e exclusão dos dados.
+- **Mais:** conta, sincronização, Carteira do Google, Despesas Água/Luz, segurança, aparência, atualização e exclusão dos dados.
 
 ---
 
@@ -47,10 +47,10 @@ No Android, as áreas principais aparecem na barra inferior. No Windows, em tela
 Abre a busca para localizar compras e períodos cadastrados.
 
 ### Total a pagar
-Mostra quanto ainda está pendente em despesas e faturas no mês aberto.
+Mostra quanto ainda está pendente em despesas e faturas no mês aberto. Ao tocar, o FinFlow mostra quais contas formam esse valor.
 
 ### Total disponível
-Soma receitas e saldo trazido do mês anterior.
+Soma receitas e saldo trazido do mês anterior. Ao tocar, o FinFlow mostra quais valores formam esse total.
 
 ### Sobra / Falta
 Compara o total disponível com todos os compromissos financeiros do mês.
@@ -125,27 +125,10 @@ Campos principais:
 Mostra visualmente a cor e a bandeira cadastradas.
 
 ### Editar fatura
-Botão com ícone de alteração de valor. Permite informar/ajustar o total da fatura do mês.
-
-Quando existem compras registradas pelo FinFlow, o total exibido já inclui essas parcelas. O aplicativo não permite reduzir manualmente a fatura para um valor menor do que as compras automáticas já vinculadas.
+Permite informar/ajustar o total da fatura do mês.
 
 ### Editar cartão
-Botão com lápis. Altera dados permanentes do cartão, como nome, banco, bandeira, limite, fechamento, vencimento, cor e situação ativo/inativo.
-
-### Limite
-Mostra o limite cadastrado do cartão.
-
-### Fecha
-Mostra o dia de fechamento da fatura.
-
-### Vence
-Mostra o dia de vencimento.
-
-### Melhor dia
-É calculado a partir do fechamento e indica um dia favorável para que uma nova compra caia na fatura seguinte.
-
-### Cartão inativo
-Permanece visível no mês atual, mas não é copiado para o próximo mês.
+Altera dados permanentes do cartão.
 
 ---
 
@@ -153,10 +136,8 @@ Permanece visível no mês atual, mas não é copiado para o próximo mês.
 
 Use esta área para registrar compras feitas no cartão.
 
-### Ícone de alerta — Importar da Carteira do Google
+### Importar da Carteira do Google
 Disponível no Android. Abre a tela **Compras detectadas**.
-
-O FinFlow não acessa diretamente a conta ou o histórico completo da Carteira do Google. Ele detecta notificações de compra emitidas pelo aplicativo Carteira do Google no próprio Android. A compra sempre precisa ser revisada antes de ser salva.
 
 ### Cartão
 Escolhe em qual cartão a compra foi feita.
@@ -168,27 +149,16 @@ Nome do produto, serviço ou estabelecimento.
 Valor total da compra.
 
 ### Parcelas
-Quantidade de parcelas, de 1 até 99.
-
-### Seleção rápida
-Atalho para escolher rapidamente de 1x até 24x.
+Quantidade de parcelas.
 
 ### Data da compra
-Data real em que a compra ocorreu. Ela é usada junto com o fechamento do cartão para decidir em qual fatura a primeira parcela entra.
+Data real em que a compra ocorreu.
 
 ### Simular parcelas
-Calcula antes de salvar:
-- primeira fatura;
-- distribuição das parcelas;
-- valor de cada parcela;
-- meses em que serão cobradas;
-- prazo aproximado até o pagamento.
+Calcula antes de salvar a distribuição das parcelas e as faturas afetadas.
 
 ### Salvar compra
-Confirma a compra e inclui suas parcelas nas faturas corretas. A compra também entra na sincronização da conta.
-
-### Nova compra
-Depois de salvar, limpa os campos para registrar outra compra.
+Confirma a compra e inclui suas parcelas nas faturas corretas.
 
 ---
 
@@ -196,167 +166,60 @@ Depois de salvar, limpa os campos para registrar outra compra.
 
 Esta função existe somente no Android.
 
-### Como funciona
-1. Abra **Compra** e toque no ícone de importação, ou vá em **Mais > Compras pela Carteira do Google**.
-2. Na primeira utilização, toque em **Abrir configurações**.
-3. Autorize o FinFlow no acesso às notificações do Android.
-4. Faça uma nova compra usando a Carteira do Google.
-5. Abra novamente **Compras detectadas** ou atualize a tela.
-6. Toque na sugestão desejada.
-7. Confira descrição, valor, cartão e parcelas.
-8. Salve a compra.
-
 ### Atualizar
-Ícone de seta circular. Relê as sugestões guardadas no aparelho.
+Relê as sugestões guardadas no aparelho.
+
+### Confirmar compra
+Botão com ✓ ao lado da lixeira. Seleciona a compra detectada e volta para a tela de adicionar compra com os dados preenchidos para revisão.
 
 ### Descartar
-Ícone de lixeira ao lado da sugestão. Remove aquela sugestão somente do aparelho, sem criar compra no FinFlow.
-
-### Privacidade
-O texto bruto da notificação fica somente no aparelho. Somente a compra revisada e salva entra no FinFlow e na sincronização.
-
-### Limitações importantes
-- Não importa automaticamente todo o histórico antigo da Carteira do Google.
-- A detecção depende de o Android permitir ao FinFlow ler as notificações.
-- A notificação precisa conter um valor em reais para ser reconhecida como candidata a compra.
-- No Windows, as compras devem ser registradas manualmente. Depois de salvas no Android, elas podem sincronizar para o Windows.
+Ícone de lixeira. Remove a sugestão somente do aparelho.
 
 ---
 
 ## 7. Aba Histórico
 
-Possui duas subabas: **Meses** e **Compras**.
-
-### Histórico > Meses
-Mostra um resumo de cada mês criado.
-
-- **A pagar:** valor ainda pendente.
-- **Disponível:** receitas e saldo anterior.
-- **Sobra/Falta:** resultado financeiro do mês.
-- **Tocar em Sobra/Falta:** abre a explicação completa do cálculo e lista despesas/faturas que formam o valor.
-- **Abrir mês:** abre aquele período na aba Início.
-- **Mês atual:** indica que o período já está aberto e, por isso, não precisa ser aberto novamente.
-
-### Histórico > Compras
-Mostra todas as compras cadastradas.
-
-Cada item informa:
-- descrição;
-- cartão;
-- data da compra;
-- valor total;
-- quantidade de parcelas.
-
-Ações:
-- **Tocar na compra:** abre a edição.
-- **Lixeira:** solicita confirmação e exclui a compra.
-- **Toque longo:** também abre a confirmação de exclusão.
-
-Ao editar uma compra, o FinFlow recalcula a distribuição nas faturas quando necessário.
+Permite consultar meses anteriores, totais e compras já registradas. O cartão Sobra/Falta também pode ser tocado para ver o detalhamento do cálculo.
 
 ---
 
-## 8. Aba Chaves Pix
+## 8. Chaves Pix
 
-### Adicionar chave
-Botão flutuante que cadastra uma nova chave Pix.
-
-Cada chave pode ter tipo, valor e um título para facilitar a identificação.
-
-### Tocar na chave
-Abre a edição.
-
-### Copiar chave
-Ícone de cópia. Coloca o valor da chave na área de transferência.
-
-### Editar chave
-Ícone de lápis. Altera os dados cadastrados.
-
-### Excluir chave
-Ícone de lixeira. Pede confirmação e remove a chave.
-
-### QR Code Pix personalizado
-Permite guardar uma imagem PNG do seu QR Code Pix.
-
-- **Cadastrar:** adiciona o QR Code quando ainda não existe.
-- **Alterar:** substitui a imagem existente.
-
-A imagem pode ser sincronizada com a conta FinFlow.
+Permite cadastrar, consultar e excluir chaves Pix e manter um QR Code Pix personalizado.
 
 ---
 
 ## 9. Aba Mais
 
 ### Conta pessoal
-Mostra a conta/e-mail atualmente conectado.
+Mostra a conta atual.
 
 ### Sincronização
-Mostra a situação da sincronização. Quando disponível, o botão de sincronizar força uma nova tentativa de enviar/receber alterações.
+Mostra o estado da sincronização dos dados financeiros compatíveis com a conta.
 
 ### Compras pela Carteira do Google
-No Android, abre a mesma tela de compras detectadas disponível na aba Compra. No Windows, informa que a função não está disponível.
+No Android, abre as compras detectadas por notificações.
+
+### Despesas Água/Luz
+Controle separado para acompanhar exclusivamente as contas de água e energia elétrica da residência.
+
+- **Ano:** use as setas para navegar entre os anos.
+- **Água:** mostra os 12 meses do ano e o valor de água cadastrado em cada mês.
+- **Luz:** mostra os 12 meses do ano e o valor de energia cadastrado em cada mês.
+- **Tocar no mês:** abre a edição do valor daquele mês.
+- **Salvar:** grava o valor informado.
+- **Total do ano:** soma somente os valores da categoria selecionada dentro desta própria função.
+
+**Importante:** os valores de Água/Luz são armazenados separadamente e **não entram em nenhum cálculo do restante do FinFlow**. Eles não alteram Total a pagar, Total disponível, Sobra/Falta, despesas, faturas, cartões ou histórico financeiro.
 
 ### Segurança
-Lembra que cada conta acessa seus próprios dados e que o FinFlow não guarda número completo do cartão nem CVV.
-
-### QR Code Pix personalizado
-Atalho para cadastrar, alterar ou visualizar o QR Code Pix salvo.
+Mostra informações de proteção dos dados.
 
 ### Aparência
-Escolhe o tema visual:
-- **Sistema:** acompanha o tema do aparelho/Windows.
-- **Claro:** força tema claro.
-- **Escuro:** força tema escuro.
+Permite usar tema do Sistema, Claro ou Escuro.
 
 ### Atualização do aplicativo
-Verifica a versão instalada e se existe uma versão mais nova.
+Verifica e instala novas versões quando disponíveis.
 
-Dependendo da plataforma e do estado da atualização, podem aparecer botões como:
-- **Verificar atualização**;
-- **Baixar e instalar**;
-- **Autorizar instalação** no Android;
-- **Baixar, atualizar e reiniciar** no Windows.
-
-No Android, o sistema pode pedir permissão para instalar atualização proveniente do próprio FinFlow.
-
-### Sair da conta
-Encerra a sessão atual. Os dados já salvos localmente permanecem no aparelho e podem voltar a sincronizar no próximo login.
-
-### Apagar meus dados do FinFlow
-Apaga receitas, despesas, cartões, faturas, compras, histórico, chaves Pix e QR Code.
-
-Por segurança:
-1. o FinFlow mostra uma primeira confirmação;
-2. depois exige que seja digitado **APAGAR**;
-3. somente então executa a exclusão.
-
-Quando a sincronização está ativa, a exclusão também é aplicada à conta e aos outros dispositivos. Essa ação não pode ser desfeita.
-
----
-
-## 10. Pago, pendente, sobra e falta
-
-- **Pago:** compromisso marcado como quitado.
-- **Pendente:** compromisso que ainda não foi marcado como pago.
-- **Total a pagar:** soma somente compromissos pendentes.
-- **Total disponível:** receitas + saldo anterior.
-- **Compromissos do mês:** soma todas as despesas e faturas do período, pagas ou pendentes.
-- **Sobra:** disponível maior ou igual aos compromissos.
-- **Falta:** compromissos maiores do que o disponível.
-
-Fórmula usada no resumo:
-
-`Total disponível - Compromissos do mês = Sobra/Falta`
-
----
-
-## 11. Android x Windows
-
-As informações financeiras e funções de cadastro devem permanecer equivalentes nas duas plataformas.
-
-Diferenças principais:
-- **Carteira do Google:** detecção de compras somente no Android.
-- **Atualização:** o processo de instalação é diferente em cada sistema.
-- **Navegação:** Android usa normalmente a barra inferior; Windows usa barra lateral quando existe espaço suficiente.
-
-As compras confirmadas no Android podem ser sincronizadas e visualizadas no Windows usando a mesma conta.
+### Apagar todos os dados
+Apaga os dados do FinFlow após duas confirmações. O controle local de Água/Luz também é apagado.
