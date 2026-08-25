@@ -23,12 +23,16 @@ class NavigationPage extends StatefulWidget {
     required this.themeController,
     this.supabaseClient,
     this.appUpdateController,
+    this.onSignInAnotherAccount,
+    this.onCreateAccount,
   });
 
   final FinancialMonthController controller;
   final ThemeController themeController;
   final SupabaseClient? supabaseClient;
   final AppUpdateController? appUpdateController;
+  final Future<void> Function()? onSignInAnotherAccount;
+  final Future<void> Function()? onCreateAccount;
 
   @override
   State<NavigationPage> createState() => _NavigationPageState();
@@ -208,6 +212,8 @@ class _NavigationPageState extends State<NavigationPage>
         themeController: widget.themeController,
         appUpdateController: _appUpdateController,
         supabaseClient: widget.supabaseClient,
+        onSignInAnotherAccount: widget.onSignInAnotherAccount,
+        onCreateAccount: widget.onCreateAccount,
       ),
       _ => const SizedBox.shrink(),
     };
