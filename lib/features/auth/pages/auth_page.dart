@@ -5,9 +5,11 @@ class AuthPage extends StatefulWidget {
   const AuthPage({
     super.key,
     required this.client,
+    this.initialCreateAccount = false,
   });
 
   final SupabaseClient client;
+  final bool initialCreateAccount;
 
   @override
   State<AuthPage> createState() => _AuthPageState();
@@ -18,9 +20,15 @@ class _AuthPageState extends State<AuthPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  bool _createAccount = false;
+  late bool _createAccount;
   bool _hidePassword = true;
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _createAccount = widget.initialCreateAccount;
+  }
 
   @override
   void dispose() {
@@ -67,8 +75,10 @@ class _AuthPageState extends State<AuthPage> {
                             style: Theme.of(context).textTheme.headlineSmall,
                           ),
                           const SizedBox(height: 8),
-                          const Text(
-                            'Use a mesma conta no Android e no Windows.',
+                          Text(
+                            _createAccount
+                                ? 'Crie uma conta separada para manter as finanças de cada pessoa isoladas.'
+                                : 'Use a mesma conta no Android e no Windows.',
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 24),
