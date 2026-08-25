@@ -139,11 +139,13 @@ void main() {
 
     await tester.tap(find.text('Mais'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Apagar meus dados do FinFlow'),
-      300,
+    final deleteButton = find.widgetWithText(
+      OutlinedButton,
+      'Apagar meus dados do FinFlow',
     );
-    await tester.tap(find.text('Apagar meus dados do FinFlow'));
+    await tester.ensureVisible(deleteButton);
+    await tester.pumpAndSettle();
+    await tester.tap(deleteButton);
     await tester.pumpAndSettle();
 
     expect(find.text('Apagar todos os dados do FinFlow?'), findsOneWidget);
