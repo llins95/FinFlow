@@ -90,6 +90,10 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Test Windows updater script
+        shell: pwsh
+        run: ./tool/test_windows_updater.ps1
+
       - name: Build configured Windows release
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://jbfwcxgmdpoqnulnajed.supabase.co' }}
@@ -236,10 +240,10 @@ jobs:
           printf '%s\n' \
             "FinFlow ${version_name} (${version_code})" \
             "" \
-            "Configurações de conta organizadas em uma tela própria." \
-            "Conta atual, troca de usuário, criação de conta e saída agrupadas no mesmo lugar." \
-            "Segurança da conta exibida junto às ações de acesso." \
-            "Mesmo comportamento no Android e no Windows." \
+            "Corrige o atualizador interno do Windows que fechava sem aplicar o ZIP." \
+            "O FinFlow agora só fecha depois que o atualizador confirma que está pronto." \
+            "Cópia com novas tentativas, backup automático e restauração em caso de falha." \
+            "Registro detalhado para diagnóstico e teste real do atualizador no Windows CI." \
             "Instaladores validados automaticamente com checksums SHA-256." \
             > release-notes.md
 

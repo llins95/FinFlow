@@ -336,6 +336,10 @@ Dependendo da plataforma e do estado da atualização, podem aparecer botões co
 
 No Android, o sistema pode pedir permissão para instalar atualização proveniente do próprio FinFlow.
 
+No Windows, o FinFlow baixa e valida o pacote antes de fechar. A atualização
+mantém uma cópia de segurança da instalação atual e a restaura automaticamente
+se não conseguir substituir os arquivos ou iniciar a nova versão.
+
 ### Apagar meus dados do FinFlow
 Apaga receitas, despesas, cartões, faturas, compras, histórico, chaves Pix, QR Code e o controle local de Água/Luz.
 

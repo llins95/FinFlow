@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -189,7 +190,36 @@ class AppUpdateService implements AppUpdateGateway {
       '${updateDirectory.path}${Platform.pathSeparator}'
       'FinFlow-Updater-${update.versionCode}.log',
     );
-    await script.writeAsString(_windowsUpdaterScript, flush: true);
+    final ready = File(
+      '${updateDirectory.path}${Platform.pathSeparator}'
+      'FinFlow-Updater-${update.versionCode}.ready',
+    );
+    final result = File(
+      '${updateDirectory.path}${Platform.pathSeparator}'
+      'FinFlow-Updater-${update.versionCode}.result',
+    );
+    final cancel = File(
+      '${updateDirectory.path}${Platform.pathSeparator}'
+      'FinFlow-Updater-${update.versionCode}.cancel',
+    );
+    final backup = Directory(
+      '${updateDirectory.path}${Platform.pathSeparator}'
+      'FinFlow-Backup-${update.versionCode}',
+    );
+
+    for (final marker in [ready, result, cancel, log]) {
+      if (await marker.exists()) {
+        await marker.delete();
+      }
+    }
+    if (await backup.exists()) {
+      await backup.delete(recursive: true);
+    }
+
+    final scriptContents = await rootBundle.loadString(
+      'assets/windows/finflow_updater.ps1',
+    );
+    await script.writeAsString('\uFEFF$scriptContents', flush: true);
 
     final systemRoot = Platform.environment['SystemRoot'] ?? r'C:\Windows';
     final powerShell =
@@ -208,7 +238,7 @@ class AppUpdateService implements AppUpdateGateway {
         'Bypass',
         '-File',
         script.path,
-        '-ProcessId',
+        '-HostProcessId',
         pid.toString(),
         '-ArchivePath',
         archive.path,
@@ -216,6 +246,14 @@ class AppUpdateService implements AppUpdateGateway {
         installDirectory.path,
         '-ExecutablePath',
         executable.path,
+        '-ReadyPath',
+        ready.path,
+        '-ResultPath',
+        result.path,
+        '-CancelPath',
+        cancel.path,
+        '-BackupPath',
+        backup.path,
         '-LogPath',
         log.path,
         '-ScriptPath',
@@ -225,7 +263,46 @@ class AppUpdateService implements AppUpdateGateway {
       mode: ProcessStartMode.detached,
     );
 
-    Timer(const Duration(milliseconds: 750), () => exit(0));
+    await waitForWindowsUpdaterReady(
+      ready: ready,
+      result: result,
+      cancel: cancel,
+      log: log,
+    );
+    Timer(const Duration(milliseconds: 500), () => exit(0));
+  }
+
+  @visibleForTesting
+  static Future<void> waitForWindowsUpdaterReady({
+    required File ready,
+    required File result,
+    required File cancel,
+    required File log,
+    Duration timeout = const Duration(seconds: 90),
+    Duration pollInterval = const Duration(milliseconds: 200),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (await ready.exists()) {
+        return;
+      }
+      if (await result.exists()) {
+        final outcome = await result.readAsString();
+        if (outcome.trimLeft().startsWith('failure')) {
+          throw Exception(
+            'O atualizador do Windows não conseguiu preparar a instalação. '
+            'O FinFlow continuará aberto. Registro: ${log.path}',
+          );
+        }
+      }
+      await Future<void>.delayed(pollInterval);
+    }
+
+    await cancel.writeAsString('cancel', flush: true);
+    throw TimeoutException(
+      'O atualizador do Windows não respondeu dentro do tempo esperado. '
+      'O FinFlow continuará aberto. Registro: ${log.path}',
+    );
   }
 
   Future<void> _verifyInstallDirectoryIsWritable(Directory directory) async {
@@ -350,47 +427,4 @@ class AppUpdateService implements AppUpdateGateway {
     return utf8.decode(bytes);
   }
 
-  static const String _windowsUpdaterScript = r'''
-param(
-  [Parameter(Mandatory = $true)][int]$ProcessId,
-  [Parameter(Mandatory = $true)][string]$ArchivePath,
-  [Parameter(Mandatory = $true)][string]$InstallDirectory,
-  [Parameter(Mandatory = $true)][string]$ExecutablePath,
-  [Parameter(Mandatory = $true)][string]$LogPath,
-  [Parameter(Mandatory = $true)][string]$ScriptPath
-)
-
-$ErrorActionPreference = 'Stop'
-$staging = Join-Path ([System.IO.Path]::GetTempPath()) "FinFlow-Update-$ProcessId"
-
-try {
-  if (Test-Path -LiteralPath $staging) {
-    Remove-Item -LiteralPath $staging -Recurse -Force
-  }
-  New-Item -ItemType Directory -Path $staging -Force | Out-Null
-  Expand-Archive -LiteralPath $ArchivePath -DestinationPath $staging -Force
-
-  $newExecutable = Join-Path $staging 'FinFlow.exe'
-  if (-not (Test-Path -LiteralPath $newExecutable -PathType Leaf)) {
-    throw 'O pacote baixado não contém FinFlow.exe.'
-  }
-
-  Wait-Process -Id $ProcessId -ErrorAction SilentlyContinue
-  Get-ChildItem -LiteralPath $staging -Force | ForEach-Object {
-    Copy-Item -LiteralPath $_.FullName -Destination $InstallDirectory -Recurse -Force
-  }
-
-  Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
-  Remove-Item -LiteralPath $ArchivePath -Force -ErrorAction SilentlyContinue
-  Start-Process -FilePath $ExecutablePath -WorkingDirectory $InstallDirectory
-} catch {
-  $_ | Out-String | Set-Content -LiteralPath $LogPath -Encoding UTF8
-  if (Test-Path -LiteralPath $ExecutablePath -PathType Leaf) {
-    Start-Process -FilePath $ExecutablePath -WorkingDirectory $InstallDirectory
-  }
-  exit 1
-} finally {
-  Remove-Item -LiteralPath $ScriptPath -Force -ErrorAction SilentlyContinue
-}
-''';
 }

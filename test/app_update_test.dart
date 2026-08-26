@@ -1,9 +1,15 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:finflow/controllers/app_update_controller.dart';
 import 'package:finflow/models/app_update.dart';
 import 'package:finflow/services/app_update_service.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   const installed = InstalledAppVersion(name: '1.0.0', code: 1);
   final update = AppUpdateInfo(
     versionName: '1.1.0',
@@ -93,6 +99,68 @@ void main() {
       }),
       throwsFormatException,
     );
+  });
+
+  test('inclui o protocolo seguro do atualizador do Windows', () async {
+    final script = await rootBundle.loadString(
+      'assets/windows/finflow_updater.ps1',
+    );
+
+    expect(script, contains(r'$ReadyPath'));
+    expect(script, contains('Invoke-RobustCopy'));
+    expect(script, contains('Copia de seguranca'));
+    expect(script, contains('Restauracao da versao anterior'));
+    expect(script, contains("-Value 'success'"));
+  });
+
+  test('não fecha o app quando o atualizador informa falha', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'finflow-updater-failure-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final ready = File('${directory.path}/ready');
+    final result = File('${directory.path}/result');
+    final cancel = File('${directory.path}/cancel');
+    final log = File('${directory.path}/updater.log');
+    await result.writeAsString('failure\nFalha controlada.');
+
+    await expectLater(
+      AppUpdateService.waitForWindowsUpdaterReady(
+        ready: ready,
+        result: result,
+        cancel: cancel,
+        log: log,
+        timeout: const Duration(milliseconds: 50),
+        pollInterval: const Duration(milliseconds: 5),
+      ),
+      throwsA(isA<Exception>()),
+    );
+    expect(await ready.exists(), isFalse);
+    expect(await cancel.exists(), isFalse);
+  });
+
+  test('cancela a preparação quando o atualizador não responde', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'finflow-updater-timeout-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final ready = File('${directory.path}/ready');
+    final result = File('${directory.path}/result');
+    final cancel = File('${directory.path}/cancel');
+    final log = File('${directory.path}/updater.log');
+
+    await expectLater(
+      AppUpdateService.waitForWindowsUpdaterReady(
+        ready: ready,
+        result: result,
+        cancel: cancel,
+        log: log,
+        timeout: const Duration(milliseconds: 25),
+        pollInterval: const Duration(milliseconds: 5),
+      ),
+      throwsA(isA<TimeoutException>()),
+    );
+    expect(await cancel.readAsString(), 'cancel');
   });
 
   test('detecta uma versão mais nova', () async {
