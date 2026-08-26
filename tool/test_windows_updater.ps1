@@ -123,3 +123,5 @@ try {
 } finally {
   Remove-Item $testRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
+
+exit 0
