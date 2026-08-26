@@ -15,6 +15,7 @@ import '../../../shared/purchase_repository.dart';
 import '../../../shared/utility_expenses_repository.dart';
 import '../../pix/widgets/pix_qr_code_dialog.dart';
 import '../../purchase/pages/notification_import_page.dart';
+import 'account_settings_page.dart';
 import 'utility_expenses_page.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -52,50 +53,25 @@ class SettingsPage extends StatelessWidget {
             child: Column(
               children: [
                 ListTile(
+                  key: const ValueKey('settings-account'),
                   leading: const Icon(FluentIcons.person_24_regular),
                   title: const Text('Conta pessoal'),
                   subtitle: Text(
                     user?.email ?? 'Dados armazenados neste aparelho',
                   ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => unawaited(
+                    Navigator.of(context).push<void>(
+                      MaterialPageRoute(
+                        builder: (context) => AccountSettingsPage(
+                          supabaseClient: supabaseClient,
+                          onSignInAnotherAccount: onSignInAnotherAccount,
+                          onCreateAccount: onCreateAccount,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-                if (supabaseClient != null) ...[
-                  const Divider(height: 1),
-                  ListTile(
-                    key: const ValueKey('account-sign-in-another'),
-                    leading: const Icon(Icons.login),
-                    title: const Text('Entrar em outra conta'),
-                    subtitle: const Text(
-                      'Troque de usuário sem misturar os dados financeiros.',
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: onSignInAnotherAccount == null
-                        ? null
-                        : () => unawaited(
-                            _confirmAccountAction(
-                              context,
-                              createAccount: false,
-                            ),
-                          ),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    key: const ValueKey('account-create-new'),
-                    leading: const Icon(Icons.person_add_alt_1_outlined),
-                    title: const Text('Criar nova conta'),
-                    subtitle: const Text(
-                      'Crie uma conta separada para outra pessoa usar o FinFlow.',
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: onCreateAccount == null
-                        ? null
-                        : () => unawaited(
-                            _confirmAccountAction(
-                              context,
-                              createAccount: true,
-                            ),
-                          ),
-                  ),
-                ],
                 const Divider(height: 1),
                 if (syncStatus == null)
                   const ListTile(
@@ -164,15 +140,6 @@ class SettingsPage extends StatelessWidget {
                     );
                   },
                 ),
-                const Divider(height: 1),
-                const ListTile(
-                  leading: Icon(Icons.security_outlined),
-                  title: Text('Segurança'),
-                  subtitle: Text(
-                    'Cada conta acessa somente os próprios dados. '
-                    'O FinFlow não armazena número completo nem CVV.',
-                  ),
-                ),
               ],
             ),
           ),
@@ -182,14 +149,6 @@ class SettingsPage extends StatelessWidget {
           _ThemeModeCard(controller: themeController),
           const SizedBox(height: 16),
           _AppUpdateCard(controller: appUpdateController),
-          if (supabaseClient != null) ...[
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () => _confirmSignOut(context),
-              icon: const Icon(Icons.logout),
-              label: const Text('Sair da conta'),
-            ),
-          ],
           const SizedBox(height: 24),
           _DeleteAllDataCard(
             controller: controller,
@@ -198,89 +157,6 @@ class SettingsPage extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Future<void> _confirmAccountAction(
-    BuildContext context, {
-    required bool createAccount,
-  }) async {
-    final action = createAccount ? onCreateAccount : onSignInAnotherAccount;
-    if (action == null) {
-      return;
-    }
-
-    final currentEmail = supabaseClient?.auth.currentUser?.email;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        icon: Icon(
-          createAccount ? Icons.person_add_alt_1_outlined : Icons.login,
-        ),
-        title: Text(
-          createAccount ? 'Criar nova conta?' : 'Entrar em outra conta?',
-        ),
-        content: Text(
-          currentEmail == null
-              ? 'O FinFlow abrirá a tela de autenticação. Cada conta mantém os próprios dados separados.'
-              : 'Você sairá de $currentEmail. Os dados dessa conta continuarão salvos e não serão misturados com os dados da outra conta.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Continuar'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) {
-      return;
-    }
-
-    try {
-      await action();
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Não foi possível trocar de conta agora. Verifique a conexão e tente novamente.',
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _confirmSignOut(BuildContext context) async {
-    final shouldSignOut = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Sair da conta?'),
-        content: const Text(
-          'Os dados já salvos continuam neste aparelho e serão '
-          'sincronizados no próximo login.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Sair'),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldSignOut == true) {
-      await supabaseClient?.auth.signOut();
-    }
   }
 
   Future<void> _deleteAllData(BuildContext context) async {

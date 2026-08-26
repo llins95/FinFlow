@@ -64,7 +64,7 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'Entrar'), findsOneWidget);
   });
 
-  testWidgets('Conta pessoal oferece login e criação de outra conta', (
+  testWidgets('Conta pessoal agrupa as ações em uma tela própria', (
     tester,
   ) async {
     final controller = FinancialMonthController(MemoryFinancialMonthStore());
@@ -101,8 +101,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Conta pessoal'), findsOneWidget);
+    expect(find.text('Entrar em outra conta'), findsNothing);
+    expect(find.text('Criar nova conta'), findsNothing);
+    expect(find.text('Sair da conta'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('settings-account')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Conta atual'), findsOneWidget);
     expect(find.text('Entrar em outra conta'), findsOneWidget);
     expect(find.text('Criar nova conta'), findsOneWidget);
+    expect(find.text('Sair da conta'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('account-sign-in-another')));
     await tester.pumpAndSettle();

@@ -291,7 +291,13 @@ A imagem pode ser sincronizada com a conta FinFlow.
 ## 9. Aba Mais
 
 ### Conta pessoal
-Mostra a conta/e-mail atualmente conectado.
+Mostra a conta/e-mail atualmente conectado. Toque neste item para abrir uma tela própria com todas as ações de conta reunidas:
+
+- **Conta atual:** mostra o e-mail em uso;
+- **Entrar em outra conta:** sai do usuário atual e abre o acesso para outra conta, mantendo os dados separados;
+- **Criar nova conta:** abre o cadastro de uma conta independente para outra pessoa;
+- **Sair da conta:** encerra a sessão atual. Os dados já salvos localmente permanecem no aparelho e podem voltar a sincronizar no próximo login;
+- **Segurança:** lembra que cada conta acessa seus próprios dados e que o FinFlow não guarda número completo do cartão nem CVV.
 
 ### Sincronização
 Mostra a situação da sincronização. Quando disponível, o botão de sincronizar força uma nova tentativa de enviar/receber alterações.
@@ -309,9 +315,6 @@ Na parte superior, use as setas para escolher o **ano**. Depois escolha uma das 
 Para cadastrar ou alterar um valor, toque no mês desejado, informe o valor da conta e toque em **Salvar**. Um valor anual é exibido no final da lista somente para facilitar a consulta dentro dessa própria função.
 
 **Importante:** Água/Luz é um controle isolado. Esses valores não entram em **Total a pagar**, **Total disponível**, **Sobra/Falta**, despesas, faturas, cartões, compras nem histórico financeiro. Eles só aparecem dentro de **Despesas Água/Luz**.
-
-### Segurança
-Lembra que cada conta acessa seus próprios dados e que o FinFlow não guarda número completo do cartão nem CVV.
 
 ### QR Code Pix personalizado
 Atalho para cadastrar, alterar ou visualizar o QR Code Pix salvo.
@@ -332,9 +335,6 @@ Dependendo da plataforma e do estado da atualização, podem aparecer botões co
 - **Baixar, atualizar e reiniciar** no Windows.
 
 No Android, o sistema pode pedir permissão para instalar atualização proveniente do próprio FinFlow.
-
-### Sair da conta
-Encerra a sessão atual. Os dados já salvos localmente permanecem no aparelho e podem voltar a sincronizar no próximo login.
 
 ### Apagar meus dados do FinFlow
 Apaga receitas, despesas, cartões, faturas, compras, histórico, chaves Pix, QR Code e o controle local de Água/Luz.

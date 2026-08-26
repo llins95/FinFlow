@@ -236,10 +236,10 @@ jobs:
           printf '%s\n' \
             "FinFlow ${version_name} (${version_code})" \
             "" \
-            "Saldo do mês anterior preservado ao navegar entre agosto e setembro." \
-            "Ícone adaptativo Android enquadrado sem ampliação ou recorte." \
-            "Mini cartões nas faturas com a cor cadastrada e a marca da bandeira." \
-            "Sincronização e comportamento equivalentes no Android e Windows." \
+            "Configurações de conta organizadas em uma tela própria." \
+            "Conta atual, troca de usuário, criação de conta e saída agrupadas no mesmo lugar." \
+            "Segurança da conta exibida junto às ações de acesso." \
+            "Mesmo comportamento no Android e no Windows." \
             "Instaladores validados automaticamente com checksums SHA-256." \
             > release-notes.md
 
