@@ -2,7 +2,7 @@ name: finflow
 description: "Aplicativo pessoal de controle financeiro."
 publish_to: "none"
 
-version: 1.10.1+13
+version: 1.11.0+14
 
 environment:
   sdk: ^3.12.2
