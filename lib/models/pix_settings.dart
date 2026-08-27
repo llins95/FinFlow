@@ -56,7 +56,7 @@ class PixSettings {
 
   Map<String, Object?> toMap() {
     return {
-      'schemaVersion': 1,
+      'schemaVersion': 2,
       'pixKeys': keys.map((key) => key.toMap()).toList(),
       'qrCodeTitle': qrCodeTitle,
       'qrCodePngBase64': qrCodePngBase64,
