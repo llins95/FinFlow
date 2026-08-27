@@ -240,10 +240,11 @@ jobs:
           printf '%s\n' \
             "FinFlow ${version_name} (${version_code})" \
             "" \
-            "Melhora a aba Chaves Pix para facilitar pagamentos e compartilhamento." \
-            "Toque no QR Code para abrir a imagem em tela cheia com suporte a zoom." \
-            "Adiciona campo de chave Pix por escrito com ações rápidas de copiar e salvar." \
-            "Mantém as chaves Pix cadastradas existentes e a sincronização da conta FinFlow." \
+            "Reorganiza a aba Chaves Pix para manter cada banco com seu QR Code e sua chave escrita no mesmo card." \
+            "Adiciona o botão Copiar ao lado da chave Pix correspondente a cada banco." \
+            "Ao adicionar ou alterar um Pix, banco, PNG 1000 × 1000 e chave Pix são cadastrados juntos." \
+            "Permite cadastrar vários bancos e mantém o QR Code em tela cheia com zoom." \
+            "Mantém compatibilidade com o QR Code salvo nas versões anteriores e a sincronização da conta FinFlow." \
             "Instaladores Android e Windows validados automaticamente com checksums SHA-256." \
             > release-notes.md
 
