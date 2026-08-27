@@ -136,9 +136,10 @@ runtimes do Visual C++ necessários para funcionar em outro computador.
 
 Em **Mais > Atualização do aplicativo**, o Windows verifica a release mais
 recente, baixa o ZIP, confere o SHA-256, fecha o FinFlow, substitui os arquivos
-e abre o aplicativo novamente. Antes de fechar, o FinFlow aguarda o atualizador
-extrair e validar o pacote. A substituição usa novas tentativas, cria uma cópia
-de segurança e restaura a versão anterior se ocorrer uma falha. A pasta onde o
+e abre o aplicativo novamente. Antes de fechar, o FinFlow valida o pacote e
+aguarda o processo externo confirmar que iniciou. A extração e a substituição
+acontecem depois do fechamento, usam novas tentativas, criam uma cópia de
+segurança e restauram a versão anterior se ocorrer uma falha. A pasta onde o
 ZIP foi extraído precisa permitir gravação pelo usuário.
 
 O roteiro do primeiro teste e a comparação de funcionalidades estão em

@@ -228,7 +228,11 @@ class AppUpdateService implements AppUpdateGateway {
         '${Platform.pathSeparator}v1.0'
         '${Platform.pathSeparator}powershell.exe';
 
-    await Process.start(
+    await log.writeAsString(
+      'FinFlow Windows Updater Launcher\n',
+      flush: true,
+    );
+    final updaterProcess = await Process.start(
       powerShell,
       [
         '-NoLogo',
@@ -260,14 +264,39 @@ class AppUpdateService implements AppUpdateGateway {
         script.path,
       ],
       workingDirectory: installDirectory.path,
-      mode: ProcessStartMode.detached,
+      mode: ProcessStartMode.normal,
     );
+
+    final updaterOutput = StringBuffer();
+    final stdoutDone = updaterProcess.stdout
+        .transform(systemEncoding.decoder)
+        .listen(updaterOutput.write)
+        .asFuture<void>();
+    final stderrDone = updaterProcess.stderr
+        .transform(systemEncoding.decoder)
+        .listen(updaterOutput.write)
+        .asFuture<void>();
+    final updaterExitCode = () async {
+      final exitCode = await updaterProcess.exitCode;
+      await Future.wait([stdoutDone, stderrDone]);
+      if (!await ready.exists()) {
+        final output = updaterOutput.toString().trim();
+        await log.writeAsString(
+          '\nO PowerShell encerrou antes do handshake (código $exitCode).'
+          '${output.isEmpty ? '' : '\n$output'}\n',
+          mode: FileMode.append,
+          flush: true,
+        );
+      }
+      return exitCode;
+    }();
 
     await waitForWindowsUpdaterReady(
       ready: ready,
       result: result,
       cancel: cancel,
       log: log,
+      updaterExitCode: updaterExitCode,
     );
     Timer(const Duration(milliseconds: 500), () => exit(0));
   }
@@ -278,9 +307,19 @@ class AppUpdateService implements AppUpdateGateway {
     required File result,
     required File cancel,
     required File log,
+    Future<int>? updaterExitCode,
     Duration timeout = const Duration(seconds: 90),
     Duration pollInterval = const Duration(milliseconds: 200),
   }) async {
+    int? observedExitCode;
+    Object? observedExitError;
+    unawaited(
+      updaterExitCode?.then<void>(
+        (exitCode) => observedExitCode = exitCode,
+        onError: (Object error, StackTrace _) => observedExitError = error,
+      ),
+    );
+
     final deadline = DateTime.now().add(timeout);
     while (DateTime.now().isBefore(deadline)) {
       if (await ready.exists()) {
@@ -294,6 +333,19 @@ class AppUpdateService implements AppUpdateGateway {
             'O FinFlow continuará aberto. Registro: ${log.path}',
           );
         }
+      }
+      if (observedExitError != null) {
+        throw Exception(
+          'O Windows não conseguiu acompanhar o processo de atualização. '
+          'O FinFlow continuará aberto. Registro: ${log.path}',
+        );
+      }
+      if (observedExitCode != null) {
+        throw Exception(
+          'O atualizador do Windows encerrou antes de iniciar '
+          '(código $observedExitCode). O FinFlow continuará aberto. '
+          'Registro: ${log.path}',
+        );
       }
       await Future<void>.delayed(pollInterval);
     }

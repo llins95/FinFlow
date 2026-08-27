@@ -29,17 +29,18 @@ e os runtimes `msvcp140.dll`, `vcruntime140.dll` e `vcruntime140_1.dll`.
 
 ## Atualização automática segura
 
-O FinFlow somente fecha depois que o atualizador externo confirma que o ZIP foi
-extraído e contém `FinFlow.exe`. Se a preparação falhar ou demorar mais que o
-limite esperado, o aplicativo permanece aberto e mostra o caminho do registro.
+O FinFlow somente fecha depois de validar o ZIP e o atualizador externo
+confirmar que iniciou. Se o processo não iniciar ou encerrar cedo, o aplicativo
+permanece aberto e mostra o caminho do registro.
 
 Depois que o FinFlow fecha, o atualizador:
 
-1. cria uma cópia de segurança da versão instalada;
-2. substitui os arquivos usando novas tentativas para contornar bloqueios
+1. extrai o pacote validado e confirma que ele contém `FinFlow.exe`;
+2. cria uma cópia de segurança da versão instalada;
+3. substitui os arquivos usando novas tentativas para contornar bloqueios
    temporários do Windows ou do antivírus;
-3. inicia a nova versão e confirma que ela permaneceu aberta;
-4. restaura e reabre a versão anterior se qualquer etapa falhar.
+4. inicia a nova versão e confirma que ela permaneceu aberta;
+5. restaura e reabre a versão anterior se qualquer etapa falhar.
 
 Os registros ficam na pasta `%TEMP%\updates`, com nomes como
 `FinFlow-Updater-[versão].log` e `FinFlow-Updater-[versão].result`.
