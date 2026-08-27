@@ -240,11 +240,11 @@ jobs:
           printf '%s\n' \
             "FinFlow ${version_name} (${version_code})" \
             "" \
-            "Corrige o atualizador interno do Windows que fechava sem aplicar o ZIP." \
-            "O FinFlow agora só fecha depois que o atualizador confirma que está pronto." \
-            "Cópia com novas tentativas, backup automático e restauração em caso de falha." \
-            "Registro detalhado para diagnóstico e teste real do atualizador no Windows CI." \
-            "Instaladores validados automaticamente com checksums SHA-256." \
+            "Melhora a aba Chaves Pix para facilitar pagamentos e compartilhamento." \
+            "Toque no QR Code para abrir a imagem em tela cheia com suporte a zoom." \
+            "Adiciona campo de chave Pix por escrito com ações rápidas de copiar e salvar." \
+            "Mantém as chaves Pix cadastradas existentes e a sincronização da conta FinFlow." \
+            "Instaladores Android e Windows validados automaticamente com checksums SHA-256." \
             > release-notes.md
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
