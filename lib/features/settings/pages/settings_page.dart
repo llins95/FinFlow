@@ -534,7 +534,7 @@ class _AppUpdateCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   isWindows
-                      ? 'O pacote .zip é validado e preparado antes de fechar. '
+                      ? 'O pacote .zip é validado antes de fechar. '
                             'Há backup e restauração automática se algo falhar.'
                       : 'O Android sempre pedirá sua confirmação antes de '
                             'instalar. O APK é validado por SHA-256.',

@@ -39,9 +39,10 @@ function New-UpdaterTestCase {
   return $paths
 }
 
-function Invoke-UpdaterTestCase {
+function Get-UpdaterArguments {
   param(
     [Parameter(Mandatory = $true)][hashtable]$Paths,
+    [int]$HostProcessId = 2147483647,
     [switch]$ForceFailureAfterInstall
   )
 
@@ -51,7 +52,7 @@ function Invoke-UpdaterTestCase {
     '-NonInteractive',
     '-ExecutionPolicy', 'Bypass',
     '-File', $Paths.Script,
-    '-HostProcessId', '2147483647',
+    '-HostProcessId', "$HostProcessId",
     '-ArchivePath', $Paths.Archive,
     '-InstallDirectory', $Paths.InstallDirectory,
     '-ExecutablePath', (Join-Path $Paths.InstallDirectory 'FinFlow.exe'),
@@ -66,6 +67,19 @@ function Invoke-UpdaterTestCase {
   if ($ForceFailureAfterInstall) {
     $arguments += '-ForceFailureAfterInstall'
   }
+
+  return $arguments
+}
+
+function Invoke-UpdaterTestCase {
+  param(
+    [Parameter(Mandatory = $true)][hashtable]$Paths,
+    [switch]$ForceFailureAfterInstall
+  )
+
+  $arguments = Get-UpdaterArguments `
+    -Paths $Paths `
+    -ForceFailureAfterInstall:$ForceFailureAfterInstall
 
   & $windowsPowerShell @arguments
   return $LASTEXITCODE
@@ -102,6 +116,60 @@ try {
   Assert-Condition (
     (Get-Content (Join-Path $success.InstallDirectory 'version.txt') -Raw).Trim() -eq 'new'
   ) 'Os arquivos da nova versao nao foram instalados.'
+
+  $handshake = New-UpdaterTestCase `
+    -Name 'handshake' `
+    -OldVersion 'old' `
+    -NewVersion 'new'
+  $hostProcess = Start-Process `
+    -FilePath $windowsPowerShell `
+    -ArgumentList '-NoLogo -NoProfile -Command "Start-Sleep -Seconds 30"' `
+    -PassThru
+  $handshakeArguments = Get-UpdaterArguments `
+    -Paths $handshake `
+    -HostProcessId $hostProcess.Id
+  $quotedHandshakeArguments = ($handshakeArguments | ForEach-Object {
+    '"' + $_.Replace('"', '\"') + '"'
+  }) -join ' '
+  $updaterProcess = Start-Process `
+    -FilePath $windowsPowerShell `
+    -ArgumentList $quotedHandshakeArguments `
+    -PassThru
+
+  try {
+    $readyDeadline = (Get-Date).AddSeconds(10)
+    while (-not (Test-Path $handshake.Ready) -and
+      -not $updaterProcess.HasExited -and
+      (Get-Date) -lt $readyDeadline) {
+      Start-Sleep -Milliseconds 100
+      $updaterProcess.Refresh()
+    }
+
+    Assert-Condition (Test-Path $handshake.Ready) `
+      'O handshake nao foi confirmado enquanto o FinFlow estava aberto.'
+    Assert-Condition (-not (Test-Path $handshake.Result)) `
+      'A instalacao terminou antes do processo do FinFlow fechar.'
+    Assert-Condition (
+      (Get-Content (Join-Path $handshake.InstallDirectory 'version.txt') -Raw).Trim() -eq 'old'
+    ) 'Os arquivos foram substituidos enquanto o FinFlow estava aberto.'
+  } finally {
+    Stop-Process -Id $hostProcess.Id -Force -ErrorAction SilentlyContinue
+  }
+
+  $updaterProcess.WaitForExit(30000) | Out-Null
+  $updaterProcess.Refresh()
+  if (-not $updaterProcess.HasExited -or $updaterProcess.ExitCode -ne 0) {
+    if (Test-Path $handshake.Log) {
+      Get-Content $handshake.Log
+    }
+    throw 'O teste do handshake nao concluiu a atualizacao.'
+  }
+  Assert-Condition (
+    (Get-Content $handshake.Result -Raw).Trim() -eq 'success'
+  ) 'O handshake nao registrou sucesso depois do fechamento.'
+  Assert-Condition (
+    (Get-Content (Join-Path $handshake.InstallDirectory 'version.txt') -Raw).Trim() -eq 'new'
+  ) 'O handshake nao instalou a nova versao depois do fechamento.'
 
   $rollback = New-UpdaterTestCase `
     -Name 'rollback' `

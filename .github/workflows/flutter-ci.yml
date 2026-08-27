@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - feat/monthly-finance
   push:
     branches:
       - feat/monthly-finance
@@ -240,11 +241,11 @@ jobs:
           printf '%s\n' \
             "FinFlow ${version_name} (${version_code})" \
             "" \
-            "Reorganiza a aba Chaves Pix para manter cada banco com seu QR Code e sua chave escrita no mesmo card." \
-            "Adiciona o botão Copiar ao lado da chave Pix correspondente a cada banco." \
-            "Ao adicionar ou alterar um Pix, banco, PNG 1000 × 1000 e chave Pix são cadastrados juntos." \
-            "Permite cadastrar vários bancos e mantém o QR Code em tela cheia com zoom." \
-            "Mantém compatibilidade com o QR Code salvo nas versões anteriores e a sincronização da conta FinFlow." \
+            "Corrige a inicialização da atualização automática no Windows." \
+            "Confirma o atualizador antes das operações demoradas e só extrai o pacote depois que o FinFlow fecha." \
+            "Reabre automaticamente a versão anterior caso a extração, instalação ou reinicialização falhe." \
+            "Detecta quando o PowerShell encerra antes do esperado e grava o diagnóstico no registro." \
+            "Adiciona um teste de integração do handshake com o FinFlow ainda em execução." \
             "Instaladores Android e Windows validados automaticamente com checksums SHA-256." \
             > release-notes.md
 

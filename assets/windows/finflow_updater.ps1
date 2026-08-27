@@ -102,20 +102,22 @@ try {
   }
 
   New-Item -ItemType Directory -Path $staging -Force | Out-Null
-  Write-UpdateLog 'Extraindo o pacote validado para a pasta temporaria.'
-  Expand-Archive -LiteralPath $ArchivePath -DestinationPath $staging -Force
-
-  $newExecutable = Join-Path $staging 'FinFlow.exe'
-  if (-not (Test-Path -LiteralPath $newExecutable -PathType Leaf)) {
-    throw 'O pacote baixado nao contem FinFlow.exe.'
+  if (-not (Test-Path -LiteralPath $ArchivePath -PathType Leaf)) {
+    throw 'O pacote validado nao foi encontrado.'
+  }
+  if (-not (Test-Path -LiteralPath $InstallDirectory -PathType Container)) {
+    throw 'A pasta de instalacao do FinFlow nao foi encontrada.'
+  }
+  if (-not (Test-Path -LiteralPath $ExecutablePath -PathType Leaf)) {
+    throw 'A versao instalada do FinFlow nao foi encontrada.'
   }
   if (Test-Path -LiteralPath $CancelPath -PathType Leaf) {
-    throw 'A preparacao da atualizacao foi cancelada pelo FinFlow.'
+    throw 'A inicializacao da atualizacao foi cancelada pelo FinFlow.'
   }
 
   Set-Content -LiteralPath $ReadyPath -Value 'ready' -Encoding ASCII
   $readySignaled = $true
-  Write-UpdateLog 'Pacote preparado. Aguardando o FinFlow fechar.'
+  Write-UpdateLog 'Atualizador pronto. Aguardando o FinFlow fechar.'
 
   while (Test-HostProcessRunning) {
     if (Test-Path -LiteralPath $CancelPath -PathType Leaf) {
@@ -124,7 +126,15 @@ try {
     Start-Sleep -Milliseconds 200
   }
   Start-Sleep -Milliseconds 1000
-  Write-UpdateLog 'FinFlow fechado. Iniciando a substituicao dos arquivos.'
+  Write-UpdateLog 'FinFlow fechado. Extraindo o pacote validado.'
+
+  Expand-Archive -LiteralPath $ArchivePath -DestinationPath $staging -Force
+
+  $newExecutable = Join-Path $staging 'FinFlow.exe'
+  if (-not (Test-Path -LiteralPath $newExecutable -PathType Leaf)) {
+    throw 'O pacote baixado nao contem FinFlow.exe.'
+  }
+  Write-UpdateLog 'Pacote extraido. Iniciando a substituicao dos arquivos.'
 
   Invoke-RobustCopy `
     -Source $InstallDirectory `

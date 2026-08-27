@@ -111,6 +111,10 @@ void main() {
     expect(script, contains('Copia de seguranca'));
     expect(script, contains('Restauracao da versao anterior'));
     expect(script, contains("-Value 'success'"));
+    expect(
+      script.indexOf("Set-Content -LiteralPath \$ReadyPath -Value 'ready'"),
+      lessThan(script.indexOf('Expand-Archive')),
+    );
   });
 
   test('não fecha o app quando o atualizador informa falha', () async {
@@ -161,6 +165,37 @@ void main() {
       throwsA(isA<TimeoutException>()),
     );
     expect(await cancel.readAsString(), 'cancel');
+  });
+
+  test('detecta quando o processo do atualizador encerra cedo', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'finflow-updater-early-exit-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final ready = File('${directory.path}/ready');
+    final result = File('${directory.path}/result');
+    final cancel = File('${directory.path}/cancel');
+    final log = File('${directory.path}/updater.log');
+
+    await expectLater(
+      AppUpdateService.waitForWindowsUpdaterReady(
+        ready: ready,
+        result: result,
+        cancel: cancel,
+        log: log,
+        updaterExitCode: Future.value(1),
+        timeout: const Duration(milliseconds: 100),
+        pollInterval: const Duration(milliseconds: 5),
+      ),
+      throwsA(
+        isA<Exception>().having(
+          (error) => error.toString(),
+          'mensagem',
+          contains('encerrou antes de iniciar'),
+        ),
+      ),
+    );
+    expect(await cancel.exists(), isFalse);
   });
 
   test('detecta uma versão mais nova', () async {
