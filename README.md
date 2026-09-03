@@ -15,6 +15,9 @@ Windows.
 - exclusão de compras, receitas e saldo anterior;
 - lembretes de fechamento e vencimento no Android;
 - dashboard de valores pagos, pendentes e próximos vencimentos;
+- cabeçalho inicial fixo com mês da fatura e busca sempre visíveis;
+- substituição imediata do conteúdo ao editar campos numéricos;
+- retorno ao mês atual ao tocar novamente na aba Início;
 - Microsoft Fluent Design com temas claro, escuro e padrão do sistema;
 - detecção opcional de compras da Carteira do Google no Android;
 - verificação, download e instalação de atualizações no Android e Windows;

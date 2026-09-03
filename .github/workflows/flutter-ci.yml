@@ -241,11 +241,11 @@ jobs:
           printf '%s\n' \
             "FinFlow ${version_name} (${version_code})" \
             "" \
-            "Corrige a inicialização da atualização automática no Windows." \
-            "Confirma o atualizador antes das operações demoradas e só extrai o pacote depois que o FinFlow fecha." \
-            "Reabre automaticamente a versão anterior caso a extração, instalação ou reinicialização falhe." \
-            "Detecta quando o PowerShell encerra antes do esperado e grava o diagnóstico no registro." \
-            "Adiciona um teste de integração do handshake com o FinFlow ainda em execução." \
+            "Remove a saudação e o emoji da tela inicial." \
+            "Mantém o mês da fatura e a busca fixos na mesma linha do nome FinFlow." \
+            "Seleciona automaticamente valores, dias e parcelas ao editar campos numéricos." \
+            "Volta ao mês atual ao tocar novamente na aba Início." \
+            "Preserva a correção do atualizador automático no Windows." \
             "Instaladores Android e Windows validados automaticamente com checksums SHA-256." \
             > release-notes.md
 
