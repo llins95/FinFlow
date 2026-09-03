@@ -17,7 +17,10 @@ import '../shared/initial_financial_data.dart';
 import '../utils/card_mapper.dart';
 
 class FinancialMonthController extends ChangeNotifier {
-  FinancialMonthController(this._store) {
+  FinancialMonthController(
+    this._store, {
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now {
     _remoteSubscription = _store.changes.listen(_handleRemoteMonth);
   }
 
@@ -25,6 +28,7 @@ class FinancialMonthController extends ChangeNotifier {
   static final DateTime lastFinancialMonth = DateTime(2099, 12);
 
   final FinancialMonthStore _store;
+  final DateTime Function() _now;
   late final StreamSubscription<FinancialMonth> _remoteSubscription;
   final Map<String, FinancialMonth> _loadedMonths = {};
 
@@ -188,7 +192,7 @@ class FinancialMonthController extends ChangeNotifier {
       }
       _rememberMonth(initialMonth);
 
-      final requestedDate = now ?? DateTime.now();
+      final requestedDate = now ?? _now();
       final requestedMonth = DateTime(requestedDate.year, requestedDate.month);
       final targetMonth = requestedMonth.isBefore(firstMonth)
           ? firstMonth
@@ -284,6 +288,15 @@ class FinancialMonthController extends ChangeNotifier {
     _rememberMonth(selectedMonth);
     notifyListeners();
     return true;
+  }
+
+  Future<bool> goToCurrentMonth() {
+    final today = _now();
+    final target = DateTime(today.year, today.month);
+    if (target.isBefore(firstMonth)) {
+      return goToMonth(firstMonth.year, firstMonth.month);
+    }
+    return goToMonth(target.year, target.month);
   }
 
   Future<void> updateEntry(FinancialEntry entry) async {

@@ -10,6 +10,7 @@ import '../../../services/finance_service.dart';
 import '../../../services/notification_purchase_import_service.dart';
 import '../../../utils/card_mapper.dart';
 import '../../../utils/money_parser.dart';
+import '../../../utils/select_all_on_focus.dart';
 import 'notification_import_page.dart';
 
 class PurchasePage extends StatefulWidget {
@@ -25,7 +26,8 @@ class _PurchasePageState extends State<PurchasePage> {
   final _descriptionController = TextEditingController();
   final _amountController = TextEditingController();
   final _installmentsController = TextEditingController(text: '1');
-  final _amountFocusNode = FocusNode();
+  late final SelectAllOnFocusNode _amountFocusNode;
+  late final SelectAllOnFocusNode _installmentsFocusNode;
   final _notificationImportService = const NotificationPurchaseImportService();
 
   final _currency = NumberFormat.currency(
@@ -51,6 +53,8 @@ class _PurchasePageState extends State<PurchasePage> {
   void initState() {
     super.initState();
     final today = DateTime.now();
+    _amountFocusNode = SelectAllOnFocusNode(_amountController);
+    _installmentsFocusNode = SelectAllOnFocusNode(_installmentsController);
     _purchaseDate = today.isBefore(FinancialMonthController.firstMonth)
         ? FinancialMonthController.firstMonth
         : DateTime(today.year, today.month, today.day);
@@ -63,10 +67,11 @@ class _PurchasePageState extends State<PurchasePage> {
 
   @override
   void dispose() {
+    _amountFocusNode.dispose();
+    _installmentsFocusNode.dispose();
     _descriptionController.dispose();
     _amountController.dispose();
     _installmentsController.dispose();
-    _amountFocusNode.dispose();
     super.dispose();
   }
 
@@ -392,6 +397,7 @@ class _PurchasePageState extends State<PurchasePage> {
                     child: TextField(
                       key: const ValueKey('purchase-installments'),
                       controller: _installmentsController,
+                      focusNode: _installmentsFocusNode,
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,

@@ -6,6 +6,7 @@ import '../../../controllers/financial_month_controller.dart';
 import '../../../models/financial_entry.dart';
 import '../../../models/purchase_record.dart';
 import '../../../utils/money_parser.dart';
+import '../../../utils/select_all_on_focus.dart';
 import '../widgets/purchase_delete_confirmation.dart';
 
 enum PurchaseEditResult { updated, deleted }
@@ -29,6 +30,8 @@ class _EditPurchasePageState extends State<EditPurchasePage> {
   late final TextEditingController _descriptionController;
   late final TextEditingController _amountController;
   late final TextEditingController _installmentsController;
+  late final SelectAllOnFocusNode _amountFocusNode;
+  late final SelectAllOnFocusNode _installmentsFocusNode;
   late String _selectedCardId;
   late DateTime _selectedDate;
 
@@ -45,12 +48,16 @@ class _EditPurchasePageState extends State<EditPurchasePage> {
     _installmentsController = TextEditingController(
       text: (purchase.installments ?? 1).toString(),
     );
+    _amountFocusNode = SelectAllOnFocusNode(_amountController);
+    _installmentsFocusNode = SelectAllOnFocusNode(_installmentsController);
     _selectedDate = widget.record.purchaseDate;
     _selectedCardId = purchase.relatedCardId ?? '';
   }
 
   @override
   void dispose() {
+    _amountFocusNode.dispose();
+    _installmentsFocusNode.dispose();
     _descriptionController.dispose();
     _amountController.dispose();
     _installmentsController.dispose();
@@ -148,6 +155,7 @@ class _EditPurchasePageState extends State<EditPurchasePage> {
             const SizedBox(height: 20),
             TextFormField(
               controller: _amountController,
+              focusNode: _amountFocusNode,
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
@@ -169,6 +177,7 @@ class _EditPurchasePageState extends State<EditPurchasePage> {
             const SizedBox(height: 20),
             TextFormField(
               controller: _installmentsController,
+              focusNode: _installmentsFocusNode,
               keyboardType: TextInputType.number,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,

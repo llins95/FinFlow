@@ -44,6 +44,57 @@ void main() {
     expect(find.textContaining('4.875,57'), findsOneWidget);
     expect(find.text('Falta'), findsOneWidget);
     expect(find.textContaining('883,70'), findsOneWidget);
+
+    final appBar = find.byType(AppBar);
+    expect(
+      find.descendant(of: appBar, matching: find.text('FinFlow')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: appBar, matching: find.text('Agosto 2026')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: appBar,
+        matching: find.byKey(const ValueKey('home-purchase-search')),
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('👋'), findsNothing);
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: appBar, matching: find.text('Agosto 2026')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('dois toques seguidos em Início voltam ao mês atual', (
+    tester,
+  ) async {
+    final store = MemoryFinancialMonthStore();
+    final controller = FinancialMonthController(
+      store,
+      now: () => DateTime(2026, 9, 5),
+    );
+    await controller.initialize();
+    expect(await controller.goToMonth(2026, 8), isTrue);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(FinFlowApp(financialMonthController: controller));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Cartões'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Início'));
+    await tester.pumpAndSettle();
+    expect(find.text('Agosto 2026'), findsOneWidget);
+
+    await tester.tap(find.text('Início'));
+    await tester.pumpAndSettle();
+    expect(find.text('Setembro 2026'), findsOneWidget);
   });
 
   testWidgets('abre a busca de compras pelo início', (tester) async {

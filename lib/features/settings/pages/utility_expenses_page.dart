@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../shared/utility_expenses_repository.dart';
+import '../../../utils/select_all_on_focus.dart';
 
 enum UtilityExpenseType { water, electricity }
 
@@ -257,6 +258,7 @@ class _ValueDialog extends StatefulWidget {
 
 class _ValueDialogState extends State<_ValueDialog> {
   late final TextEditingController _controller;
+  late final SelectAllOnFocusNode _focusNode;
 
   @override
   void initState() {
@@ -264,18 +266,26 @@ class _ValueDialogState extends State<_ValueDialog> {
     _controller = TextEditingController(
       text: widget.initialValueInCents == 0
           ? ''
-          : (widget.initialValueInCents / 100).toStringAsFixed(2).replaceAll('.', ','),
+          : (widget.initialValueInCents / 100).toStringAsFixed(2).replaceAll(
+              '.',
+              ',',
+            ),
     );
+    _focusNode = SelectAllOnFocusNode(_controller);
   }
 
   @override
   void dispose() {
+    _focusNode.dispose();
     _controller.dispose();
     super.dispose();
   }
 
   int? _parse() {
-    var value = _controller.text.trim().replaceAll('R\$', '').replaceAll(' ', '');
+    var value = _controller.text
+        .trim()
+        .replaceAll('R\$', '')
+        .replaceAll(' ', '');
     if (value.isEmpty) return 0;
     if (value.contains(',') && value.contains('.')) {
       value = value.replaceAll('.', '').replaceAll(',', '.');
@@ -293,6 +303,7 @@ class _ValueDialogState extends State<_ValueDialog> {
       title: Text(widget.title),
       content: TextField(
         controller: _controller,
+        focusNode: _focusNode,
         autofocus: true,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         decoration: const InputDecoration(

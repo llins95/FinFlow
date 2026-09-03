@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../../utils/money_parser.dart';
+import '../../../utils/select_all_on_focus.dart';
 
 class FinancialEntryDraft {
   final String name;
@@ -101,6 +102,8 @@ class _FinancialEntryDialogState extends State<FinancialEntryDialog> {
   late final TextEditingController nameController;
   late final TextEditingController amountController;
   late final TextEditingController dueDayController;
+  late final SelectAllOnFocusNode amountFocusNode;
+  late final SelectAllOnFocusNode dueDayFocusNode;
   late bool isRecurring;
   DateTime? recurrenceEndMonth;
 
@@ -115,12 +118,16 @@ class _FinancialEntryDialogState extends State<FinancialEntryDialog> {
     dueDayController = TextEditingController(
       text: widget.initialDueDay?.toString() ?? '',
     );
+    amountFocusNode = SelectAllOnFocusNode(amountController);
+    dueDayFocusNode = SelectAllOnFocusNode(dueDayController);
     isRecurring = widget.initialRecurring;
     recurrenceEndMonth = widget.initialRecurrenceEndMonth;
   }
 
   @override
   void dispose() {
+    amountFocusNode.dispose();
+    dueDayFocusNode.dispose();
     nameController.dispose();
     amountController.dispose();
     dueDayController.dispose();
@@ -173,6 +180,7 @@ class _FinancialEntryDialogState extends State<FinancialEntryDialog> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: amountController,
+                focusNode: amountFocusNode,
                 autofocus: true,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
@@ -212,6 +220,7 @@ class _FinancialEntryDialogState extends State<FinancialEntryDialog> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: dueDayController,
+                  focusNode: dueDayFocusNode,
                   keyboardType: TextInputType.number,
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly,

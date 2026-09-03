@@ -150,6 +150,23 @@ void main() {
       controller.dispose();
     });
 
+    test('volta ao mês atual depois de navegar para outro mês', () async {
+      final store = MemoryFinancialMonthStore();
+      final controller = FinancialMonthController(
+        store,
+        now: () => DateTime(2026, 9, 5),
+      );
+      await controller.initialize();
+
+      expect(await controller.goToMonth(2026, 8), isTrue);
+      expect(controller.currentMonth.storageKey, '2026-08');
+
+      expect(await controller.goToCurrentMonth(), isTrue);
+      expect(controller.currentMonth.storageKey, '2026-09');
+
+      controller.dispose();
+    });
+
     test('preserva a versão do cliente ao serializar', () {
       final timestamp = DateTime.utc(2026, 8, 5, 19, 30);
       final month = FinancialMonth(

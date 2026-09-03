@@ -281,6 +281,11 @@ class _NavigationPageState extends State<NavigationPage>
   }
 
   void _selectPage(int index) {
+    if (index == 0 && currentIndex == 0) {
+      unawaited(widget.controller.goToCurrentMonth());
+      return;
+    }
+
     setState(() {
       currentIndex = index;
       _visitedPages.add(index);

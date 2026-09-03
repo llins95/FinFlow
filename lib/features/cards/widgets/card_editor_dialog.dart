@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../models/credit_card.dart';
 import '../../../utils/money_parser.dart';
+import '../../../utils/select_all_on_focus.dart';
 
 class CardEditorDraft {
   final String name;
@@ -74,6 +75,9 @@ class _CardEditorDialogState extends State<CardEditorDialog> {
   late final TextEditingController _limitController;
   late final TextEditingController _closingDayController;
   late final TextEditingController _dueDayController;
+  late final SelectAllOnFocusNode _limitFocusNode;
+  late final SelectAllOnFocusNode _closingDayFocusNode;
+  late final SelectAllOnFocusNode _dueDayFocusNode;
   late int _selectedColor;
   late bool _isActive;
 
@@ -95,12 +99,18 @@ class _CardEditorDialogState extends State<CardEditorDialog> {
     _dueDayController = TextEditingController(
       text: card?.dueDay.toString() ?? '',
     );
+    _limitFocusNode = SelectAllOnFocusNode(_limitController);
+    _closingDayFocusNode = SelectAllOnFocusNode(_closingDayController);
+    _dueDayFocusNode = SelectAllOnFocusNode(_dueDayController);
     _selectedColor = card?.color ?? CardEditorDialog.colors.first;
     _isActive = card?.isActive ?? true;
   }
 
   @override
   void dispose() {
+    _limitFocusNode.dispose();
+    _closingDayFocusNode.dispose();
+    _dueDayFocusNode.dispose();
     _nameController.dispose();
     _bankController.dispose();
     _brandController.dispose();
@@ -205,6 +215,7 @@ class _CardEditorDialogState extends State<CardEditorDialog> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _limitController,
+                  focusNode: _limitFocusNode,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
@@ -224,6 +235,7 @@ class _CardEditorDialogState extends State<CardEditorDialog> {
                     Expanded(
                       child: TextFormField(
                         controller: _closingDayController,
+                        focusNode: _closingDayFocusNode,
                         keyboardType: TextInputType.number,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         decoration: const InputDecoration(
@@ -237,6 +249,7 @@ class _CardEditorDialogState extends State<CardEditorDialog> {
                     Expanded(
                       child: TextFormField(
                         controller: _dueDayController,
+                        focusNode: _dueDayFocusNode,
                         keyboardType: TextInputType.number,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         decoration: const InputDecoration(

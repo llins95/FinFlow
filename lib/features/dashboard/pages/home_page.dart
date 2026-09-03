@@ -35,31 +35,29 @@ class HomePage extends StatelessWidget {
             .toList();
 
         return Scaffold(
-          appBar: AppBar(title: const Text('FinFlow')),
-          body: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '${_greeting()} 👋',
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  IconButton.filledTonal(
-                    key: const ValueKey('home-purchase-search'),
-                    onPressed: () =>
-                        showPurchaseSearch(context, controller.purchaseRecords),
-                    tooltip: 'Buscar compra ou mês',
-                    icon: const Icon(FluentIcons.search_24_regular),
-                  ),
-                ],
+          appBar: AppBar(
+            titleSpacing: 12,
+            title: Row(
+              children: [
+                const Text('FinFlow'),
+                const SizedBox(width: 8),
+                Expanded(child: _MonthSelector(controller: controller)),
+              ],
+            ),
+            actions: [
+              IconButton(
+                key: const ValueKey('home-purchase-search'),
+                onPressed: () =>
+                    showPurchaseSearch(context, controller.purchaseRecords),
+                tooltip: 'Buscar compra ou mês',
+                icon: const Icon(FluentIcons.search_24_regular),
               ),
-              const SizedBox(height: 16),
-              _MonthSelector(controller: controller),
-              const SizedBox(height: 16),
+              const SizedBox(width: 4),
+            ],
+          ),
+          body: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            children: [
               _FinancialOverview(controller: controller),
               const SizedBox(height: 16),
               _DashboardDetails(controller: controller),
@@ -125,17 +123,6 @@ class HomePage extends StatelessWidget {
         );
       },
     );
-  }
-
-  String _greeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) {
-      return 'Bom dia';
-    }
-    if (hour < 18) {
-      return 'Boa tarde';
-    }
-    return 'Boa noite';
   }
 
   Future<void> _editEntry(BuildContext context, FinancialEntry entry) async {
@@ -274,35 +261,42 @@ class _MonthSelector extends StatelessWidget {
     final formatter = DateFormat('MMMM yyyy', 'pt_BR');
     final label = toBeginningOfSentenceCase(formatter.format(month.date));
 
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: controller.canGoToPreviousMonth
-                ? controller.goToPreviousMonth
-                : null,
-            tooltip: 'Mês anterior',
-            icon: const Icon(Icons.chevron_left),
-          ),
-          Expanded(
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        IconButton(
+          onPressed: controller.canGoToPreviousMonth
+              ? controller.goToPreviousMonth
+              : null,
+          tooltip: 'Mês anterior',
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          padding: const EdgeInsets.all(6),
+          icon: const Icon(Icons.chevron_left),
+        ),
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
             child: Text(
               label,
-              textAlign: TextAlign.center,
+              maxLines: 1,
               style: Theme.of(
                 context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
-          IconButton(
-            onPressed: controller.canGoToNextMonth
-                ? controller.goToNextMonth
-                : null,
-            tooltip: 'Próximo mês',
-            icon: const Icon(Icons.chevron_right),
-          ),
-        ],
-      ),
+        ),
+        IconButton(
+          onPressed: controller.canGoToNextMonth
+              ? controller.goToNextMonth
+              : null,
+          tooltip: 'Próximo mês',
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          padding: const EdgeInsets.all(6),
+          icon: const Icon(Icons.chevron_right),
+        ),
+      ],
     );
   }
 }
