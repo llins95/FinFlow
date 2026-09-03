@@ -1,0 +1,323 @@
+name: Flutter CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - feat/monthly-finance
+  push:
+    branches:
+      - feat/monthly-finance
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: Publicar Android assinado e pacote Windows
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Analyze, test, and build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.4
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze Dart code
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build configured Android debug APK
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://jbfwcxgmdpoqnulnajed.supabase.co' }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_bEOdvlZurZkI_WqRhkDk0Q_TV0n0UT-' }}
+        run: |
+          flutter build apk --debug \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY"
+
+      - name: Create APK checksum
+        run: sha256sum build/app/outputs/flutter-apk/app-debug.apk > build/app/outputs/flutter-apk/app-debug.apk.sha256
+
+      - name: Publish validation APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinFlow-S23-debug-${{ github.sha }}
+          path: |
+            build/app/outputs/flutter-apk/app-debug.apk
+            build/app/outputs/flutter-apk/app-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  validate_windows:
+    name: Build Windows 11 package
+    needs: validate
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.4
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Test Windows updater script
+        shell: pwsh
+        run: ./tool/test_windows_updater.ps1
+
+      - name: Build configured Windows release
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://jbfwcxgmdpoqnulnajed.supabase.co' }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_bEOdvlZurZkI_WqRhkDk0Q_TV0n0UT-' }}
+        run: >-
+          flutter build windows --release
+          --dart-define=SUPABASE_URL="$env:SUPABASE_URL"
+          --dart-define=SUPABASE_PUBLISHABLE_KEY="$env:SUPABASE_PUBLISHABLE_KEY"
+
+      - name: Package Windows application
+        shell: pwsh
+        run: |
+          $releaseDirectory = "build/windows/x64/runner/Release"
+          $packageDirectory = "build/windows-package"
+          $archive = "build/FinFlow-Windows-x64.zip"
+
+          New-Item -ItemType Directory -Force -Path $packageDirectory | Out-Null
+          Copy-Item "$releaseDirectory/*" $packageDirectory -Recurse
+
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $visualStudio = & $vswhere -latest -products * -property installationPath
+          foreach ($runtime in @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")) {
+            $runtimePath = Get-ChildItem (Join-Path $visualStudio "VC\Redist\MSVC") `
+              -Recurse -File -Filter $runtime |
+              Where-Object { $_.FullName -match '[\\/]x64[\\/]' } |
+              Select-Object -First 1 -ExpandProperty FullName
+
+            if (-not $runtimePath) {
+              $systemRuntime = Join-Path $env:WINDIR "System32\$runtime"
+              if (Test-Path $systemRuntime) {
+                $runtimePath = $systemRuntime
+              }
+            }
+            if (-not $runtimePath -or -not (Test-Path $runtimePath)) {
+              throw "Runtime do Visual C++ não encontrado: $runtime"
+            }
+            Copy-Item $runtimePath $packageDirectory
+          }
+
+          if (-not (Test-Path "$packageDirectory/FinFlow.exe")) {
+            throw "FinFlow.exe não foi encontrado no pacote do Windows."
+          }
+          Compress-Archive -Path "$packageDirectory/*" -DestinationPath $archive
+
+          $hash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()
+          "$hash  FinFlow-Windows-x64.zip" |
+            Set-Content "build/FinFlow-Windows-x64.zip.sha256" -NoNewline
+
+      - name: Publish Windows validation package
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinFlow-Windows-x64-${{ github.sha }}
+          path: |
+            build/FinFlow-Windows-x64.zip
+            build/FinFlow-Windows-x64.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  release_android:
+    name: Publish signed Android release
+    needs:
+      - validate
+      - validate_windows
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.publish_release) ||
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.4
+          channel: stable
+          cache: true
+
+      - name: Verify signing secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for variable in \
+            ANDROID_KEYSTORE_BASE64 \
+            ANDROID_KEYSTORE_PASSWORD \
+            ANDROID_KEY_ALIAS \
+            ANDROID_KEY_PASSWORD
+          do
+            if [ -z "${!variable}" ]; then
+              echo "::error::Repository Secret ausente: $variable"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Restore signing keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" \
+            | base64 --decode \
+            > android/app/finflow-release.jks
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build signed release APK
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/app/finflow-release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://jbfwcxgmdpoqnulnajed.supabase.co' }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_bEOdvlZurZkI_WqRhkDk0Q_TV0n0UT-' }}
+        run: |
+          flutter build apk --release \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY"
+
+      - name: Verify APK signature and prepare release files
+        id: release
+        run: |
+          apksigner_path="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$apksigner_path" verify --verbose --print-certs \
+            build/app/outputs/flutter-apk/app-release.apk
+
+          version="$(awk '/^version:/ {print $2}' pubspec.yaml)"
+          version_name="${version%%+*}"
+          version_code="${version##*+}"
+          tag="v${version_name}+${version_code}"
+
+          mkdir -p release
+          cp build/app/outputs/flutter-apk/app-release.apk release/FinFlow.apk
+          cd release
+          sha256sum FinFlow.apk > FinFlow.apk.sha256
+          printf '%s\n' \
+            "FinFlow ${version_name} (${version_code})" \
+            "" \
+            "Remove a saudação e o emoji da tela inicial." \
+            "Mantém o mês da fatura e a busca fixos na mesma linha do nome FinFlow." \
+            "Seleciona automaticamente valores, dias e parcelas ao editar campos numéricos." \
+            "Volta ao mês atual ao tocar novamente na aba Início." \
+            "Preserva a correção do atualizador automático no Windows." \
+            "Instaladores Android e Windows validados automaticamente com checksums SHA-256." \
+            > release-notes.md
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure version was not published before
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG"; then
+            echo "::error::A versão $RELEASE_TAG já foi publicada. Aumente a versão no pubspec.yaml."
+            exit 1
+          fi
+
+      - name: Publish versioned GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version_name }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            release/FinFlow.apk \
+            release/FinFlow.apk.sha256 \
+            --target "$GITHUB_SHA" \
+            --title "FinFlow $RELEASE_VERSION" \
+            --notes-file release/release-notes.md
+
+      - name: Publish signed APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinFlow-S23-signed-${{ steps.release.outputs.tag }}
+          path: |
+            release/FinFlow.apk
+            release/FinFlow.apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+  release_windows:
+    name: Attach Windows 11 package to release
+    needs:
+      - validate_windows
+      - release_android
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.publish_release) ||
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download validated Windows package
+        uses: actions/download-artifact@v4
+        with:
+          name: FinFlow-Windows-x64-${{ github.sha }}
+          path: release
+
+      - name: Attach Windows package to versioned release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(awk '/^version:/ {print $2}' pubspec.yaml)"
+          version_name="${version%%+*}"
+          version_code="${version##*+}"
+          tag="v${version_name}+${version_code}"
+
+          gh release upload "$tag" \
+            release/FinFlow-Windows-x64.zip \
+            release/FinFlow-Windows-x64.zip.sha256 \
+            --clobber

@@ -1,16 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../../models/credit_card.dart';
+import '../../../shared/mini_credit_card.dart';
 
 class CreditCardTile extends StatelessWidget {
-  final CreditCard card;
+  const CreditCardTile({
+    super.key,
+    required this.card,
+    required this.invoiceMonth,
+    this.invoiceInCents,
+    this.automaticPurchasesInCents = 0,
+    this.onEditInvoice,
+    this.onEditCard,
+  });
 
-  const CreditCardTile({super.key, required this.card});
+  final CreditCard card;
+  final DateTime invoiceMonth;
+  final int? invoiceInCents;
+  final int automaticPurchasesInCents;
+  final VoidCallback? onEditInvoice;
+  final VoidCallback? onEditCard;
 
   @override
   Widget build(BuildContext context) {
+    final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    final monthLabel = toBeginningOfSentenceCase(
+      DateFormat('MMMM/yyyy', 'pt_BR').format(invoiceMonth),
+    );
+
     return Card(
-      margin: const EdgeInsets.only(bottom: 18),
+      margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -18,90 +38,104 @@ class CreditCardTile extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(radius: 18, backgroundColor: Color(card.color)),
-
+                MiniCreditCard(
+                  key: ValueKey('card-tile-mini-card-${card.id}'),
+                  color: card.color,
+                  brand: card.brand,
+                  width: 54,
+                  height: 34,
+                ),
                 const SizedBox(width: 12),
-
                 Expanded(
-                  child: Text(
-                    card.name,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              card.name,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          if (!card.isActive) ...[
+                            const SizedBox(width: 8),
+                            const Chip(
+                              visualDensity: VisualDensity.compact,
+                              label: Text('Inativo'),
+                            ),
+                          ],
+                        ],
+                      ),
+                      Text(
+                        '${card.bank} • ${card.brand}',
+                        style: TextStyle(color: Colors.grey.shade400),
+                      ),
+                    ],
                   ),
                 ),
-
-                Text(card.brand, style: TextStyle(color: Colors.grey.shade400)),
+                if (onEditInvoice != null)
+                  IconButton(
+                    onPressed: onEditInvoice,
+                    tooltip: 'Editar fatura',
+                    icon: const Icon(Icons.price_change_outlined),
+                  ),
+                if (onEditCard != null)
+                  IconButton(
+                    onPressed: onEditCard,
+                    tooltip: 'Editar cartão',
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
               ],
             ),
-
-            const SizedBox(height: 14),
-
-            const Text("Limite", style: TextStyle(color: Colors.grey)),
-
+            const SizedBox(height: 18),
             Text(
-              "R\$ ${card.limit.toStringAsFixed(0)}",
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              'Fatura de $monthLabel',
+              style: TextStyle(color: Colors.grey.shade400),
             ),
-
-            const SizedBox(height: 12),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _Info(titulo: "Fecha", valor: card.closingDay.toString()),
-
-                _Info(titulo: "Vence", valor: card.dueDay.toString()),
-
-                _Info(
-                  titulo: "Melhor dia",
-                  valor: card.bestPurchaseDay.toString(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            const Divider(),
-
-            const SizedBox(height: 10),
-
-            Text("Próxima fatura", style: TextStyle(color: Colors.grey)),
-
-            const SizedBox(height: 8),
-
+            const SizedBox(height: 4),
             Text(
-              "${card.nextInvoiceDate().day.toString().padLeft(2, '0')}/"
-              "${card.nextInvoiceDate().month.toString().padLeft(2, '0')}/"
-              "${card.nextInvoiceDate().year}",
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              invoiceInCents == null
+                  ? 'Não cadastrada'
+                  : currency.format(invoiceInCents! / 100),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
-
-            const SizedBox(height: 8),
-
-            Text("Restam ${card.daysUntilInvoice()} dias"),
-            const SizedBox(height: 12),
-
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: card.purchaseGoesToNextInvoice()
-                    ? Colors.green.withValues(alpha: 0.15)
-                    : Colors.orange.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                card.purchaseAdvice(),
+            if (automaticPurchasesInCents > 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Inclui ${currency.format(automaticPurchasesInCents / 100)} '
+                'em compras adicionadas',
                 style: TextStyle(
-                  color: card.purchaseGoesToNextInvoice()
-                      ? Colors.green
-                      : Colors.orange,
-                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
+            ],
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 24,
+              runSpacing: 12,
+              children: [
+                _Info(label: 'Limite', value: currency.format(card.limit)),
+                _Info(label: 'Fecha', value: 'Dia ${card.closingDay}'),
+                _Info(label: 'Vence', value: 'Dia ${card.dueDay}'),
+                _Info(
+                  label: 'Melhor dia',
+                  value: 'Dia ${card.bestPurchaseDay}',
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(card.purchaseAdvice()),
+            if (!card.isActive) ...[
+              const SizedBox(height: 14),
+              Text(
+                'Este cartão permanece no mês atual, mas não será copiado '
+                'para o próximo.',
+                style: TextStyle(color: Colors.grey.shade400),
+              ),
+            ],
           ],
         ),
       ),
@@ -110,21 +144,19 @@ class CreditCardTile extends StatelessWidget {
 }
 
 class _Info extends StatelessWidget {
-  final String titulo;
-  final String valor;
+  const _Info({required this.label, required this.value});
 
-  const _Info({required this.titulo, required this.valor});
+  final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(titulo, style: const TextStyle(color: Colors.grey)),
-        const SizedBox(height: 4),
-        Text(
-          valor,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
+        Text(label, style: TextStyle(color: Colors.grey.shade400)),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
       ],
     );
   }

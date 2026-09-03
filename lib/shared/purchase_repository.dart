@@ -18,4 +18,8 @@ class PurchaseRepository {
   static Future<void> update(Purchase purchase) async {
     await _box.put(purchase.id, purchase);
   }
+
+  static Future<void> clear() async {
+    await _box.clear();
+  }
 }
