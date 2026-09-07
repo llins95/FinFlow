@@ -241,10 +241,10 @@ jobs:
           printf '%s\n' \
             "FinFlow ${version_name} (${version_code})" \
             "" \
-            "Remove a saudação e o emoji da tela inicial." \
-            "Mantém o mês da fatura e a busca fixos na mesma linha do nome FinFlow." \
-            "Seleciona automaticamente valores, dias e parcelas ao editar campos numéricos." \
-            "Volta ao mês atual ao tocar novamente na aba Início." \
+            "Corrige Falta/Sobra para considerar somente despesas e faturas pendentes." \
+            "Aplica o mesmo cálculo no Início e no Histórico." \
+            "O detalhamento mostra somente as pendências incluídas no cálculo." \
+            "Preserva os registros pagos e a transferência de saldo entre meses." \
             "Preserva a correção do atualizador automático no Windows." \
             "Instaladores Android e Windows validados automaticamente com checksums SHA-256." \
             > release-notes.md
