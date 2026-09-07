@@ -311,7 +311,7 @@ class _FinancialOverview extends StatelessWidget {
     final month = controller.currentMonth;
     final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
     final totalDebtInCents = controller.currentTotalPendingInCents;
-    final balanceInCents = controller.currentBalanceInCents;
+    final balanceInCents = controller.currentPendingBalanceInCents;
     final hasSurplus = balanceInCents >= 0;
 
     return LayoutBuilder(

@@ -90,7 +90,7 @@ class _FinancialMonthHistory extends StatelessWidget {
                 totalPendingInCents: controller.totalPendingInCentsForMonth(
                   month,
                 ),
-                balanceInCents: controller.balanceInCentsForMonth(month),
+                balanceInCents: controller.pendingBalanceInCentsForMonth(month),
                 isCurrent:
                     month.storageKey == controller.currentMonth.storageKey,
                 onOpen: () => onOpenMonth(month),

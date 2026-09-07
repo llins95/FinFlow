@@ -89,7 +89,7 @@ void main() {
     expect(find.text('Saldo de julho'), findsWidgets);
   });
 
-  testWidgets('mostra o que compõe a falta na tela Início', (tester) async {
+  testWidgets('mostra sobra sem descontar pagamentos na tela Início', (tester) async {
     final controller = await buildController();
     addTearDown(controller.dispose);
 
@@ -97,13 +97,15 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('home-balance-details')));
     await tester.pumpAndSettle();
 
-    expect(find.text('O que está faltando?'), findsOneWidget);
+    expect(find.text('Detalhes da sobra'), findsOneWidget);
     expect(find.text('Conta de luz'), findsWidgets);
-    expect(find.text('Internet'), findsWidgets);
-    expect(find.text('O que compõe os compromissos'), findsOneWidget);
+    final dialog = find.byType(AlertDialog);
+    expect(find.descendant(of: dialog, matching: find.text('Internet')), findsNothing);
+    expect(find.text('Pendências incluídas'), findsOneWidget);
+    expect(controller.currentPendingBalanceInCents, 3500);
   });
 
-  testWidgets('mostra o que compõe a falta no Histórico', (tester) async {
+  testWidgets('mostra sobra sem descontar pagamentos no Histórico', (tester) async {
     final controller = await buildController();
     addTearDown(controller.dispose);
 
@@ -116,8 +118,10 @@ void main() {
     await tester.tap(find.byKey(key));
     await tester.pumpAndSettle();
 
-    expect(find.text('O que está faltando?'), findsOneWidget);
+    expect(find.text('Detalhes da sobra'), findsOneWidget);
     expect(find.text('Conta de luz'), findsWidgets);
-    expect(find.text('Internet'), findsWidgets);
+    final dialog = find.byType(AlertDialog);
+    expect(find.descendant(of: dialog, matching: find.text('Internet')), findsNothing);
+    expect(controller.pendingBalanceInCentsForMonth(controller.currentMonth), 3500);
   });
 }

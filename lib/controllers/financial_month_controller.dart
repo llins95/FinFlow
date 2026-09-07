@@ -131,6 +131,15 @@ class FinancialMonthController extends ChangeNotifier {
     return month.totalAvailableInCents - totalDebtInCentsForMonth(month);
   }
 
+  // The summary compares available funds with unpaid commitments only.
+  // Keep the full-month balance above for previous-month transfers.
+  int pendingBalanceInCentsForMonth(FinancialMonth month) {
+    return month.totalAvailableInCents - totalPendingInCentsForMonth(month);
+  }
+
+  int get currentPendingBalanceInCents =>
+      pendingBalanceInCentsForMonth(currentMonth);
+
   int get currentTotalDebtInCents => totalDebtInCentsForMonth(currentMonth);
 
   int get currentTotalPendingInCents =>

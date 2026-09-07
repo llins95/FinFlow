@@ -56,14 +56,15 @@ class BalanceDetailsDialog extends StatelessWidget {
   }
 
   Widget _buildBalanceDialog(BuildContext context, NumberFormat currency) {
-    final totalDebt = controller.totalDebtInCentsForMonth(month);
     final totalPending = controller.totalPendingInCentsForMonth(month);
     final totalPaid = controller.totalPaidInCentsForMonth(month);
     final available = month.totalAvailableInCents;
-    final balance = controller.balanceInCentsForMonth(month);
+    final balance = controller.pendingBalanceInCentsForMonth(month);
     final hasSurplus = balance >= 0;
     final resultColor = hasSurplus ? Colors.green : Colors.redAccent;
-    final debtEntries = _debtEntries();
+    final debtEntries = _debtEntries()
+        .where((entry) => !entry.isPaid)
+        .toList(growable: false);
 
     return AlertDialog(
       icon: Icon(
@@ -80,8 +81,8 @@ class BalanceDetailsDialog extends StatelessWidget {
             children: [
               Text(
                 hasSurplus
-                    ? 'Depois de considerar todos os compromissos deste mês, ainda há valor disponível.'
-                    : 'O valor disponível não cobre todos os compromissos cadastrados neste mês.',
+                    ? 'Depois de considerar as despesas e faturas pendentes deste mês, ainda há valor disponível.'
+                    : 'O valor disponível não cobre as despesas e faturas pendentes deste mês.',
               ),
               const SizedBox(height: 16),
               _FormulaRow(
@@ -90,8 +91,8 @@ class BalanceDetailsDialog extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               _FormulaRow(
-                label: 'Compromissos do mês',
-                value: '- ${currency.format(totalDebt / 100)}',
+                label: 'Total a pagar',
+                value: '- ${currency.format(totalPending / 100)}',
               ),
               const Divider(height: 24),
               _FormulaRow(
@@ -102,16 +103,15 @@ class BalanceDetailsDialog extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Dos compromissos do mês, ${currency.format(totalPaid / 100)} '
-                'já está marcado como pago e ${currency.format(totalPending / 100)} '
-                'ainda está pendente.',
+                '${currency.format(totalPaid / 100)} já está marcado como pago '
+                'e não entra neste cálculo.',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 20),
               Text(
-                'O que compõe os compromissos',
+                'Pendências incluídas',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -119,7 +119,7 @@ class BalanceDetailsDialog extends StatelessWidget {
               const SizedBox(height: 8),
               if (debtEntries.isEmpty)
                 const Text(
-                  'Nenhuma despesa ou fatura com valor foi encontrada.',
+                  'Nenhuma despesa ou fatura está pendente.',
                 )
               else
                 for (final entry in debtEntries)
