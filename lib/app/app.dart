@@ -72,6 +72,17 @@ class _FinFlowAppState extends State<FinFlowApp> {
 
     _authSubscription = client.auth.onAuthStateChange.listen(
       (authState) => unawaited(_handleSession(authState.session)),
+      onError: (Object error, StackTrace stack) {
+        if (mounted && _controller == null) {
+          ++_sessionGeneration;
+          setState(() {
+            _startupError =
+                'Não foi possível recuperar a sessão. '
+                'Verifique a conexão e tente novamente.';
+            _isStarting = false;
+          });
+        }
+      },
     );
     unawaited(_handleSession(client.auth.currentSession));
   }
@@ -122,15 +133,15 @@ class _FinFlowAppState extends State<FinFlowApp> {
       return;
     }
 
-    final client = widget.supabaseClient!;
-    final controller = FinancialMonthController(
-      SupabaseFinancialMonthStore(
-        client: client,
-        localStore: HiveFinancialMonthStore(userId: userId),
-      ),
-    );
-
+    FinancialMonthController? controller;
     try {
+      final client = widget.supabaseClient!;
+      controller = FinancialMonthController(
+        SupabaseFinancialMonthStore(
+          client: client,
+          localStore: HiveFinancialMonthStore(userId: userId),
+        ),
+      );
       await controller.initialize();
       await _importLegacyPurchases(controller);
 
@@ -144,7 +155,7 @@ class _FinFlowAppState extends State<FinFlowApp> {
         _isStarting = false;
       });
     } catch (error) {
-      controller.dispose();
+      controller?.dispose();
 
       if (!mounted || generation != _sessionGeneration) {
         return;
