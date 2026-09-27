@@ -41,11 +41,11 @@ void main() {
       httpClient: MockClient((request) async {
         requests++;
         final response = await respond(request);
-        return http.Response.bytes(
-          response.bodyBytes,
+        return http.Response(
+          response.body,
           response.statusCode,
           request: request,
-          headers: {'content-type': 'application/json'},
+          headers: {'content-type': 'application/json; charset=utf-8'},
         );
       }),
     );
@@ -184,6 +184,7 @@ void main() {
     };
     await Future<void>.delayed(const Duration(milliseconds: 120));
     await store!.syncNow();
+    expect(store!.syncStatus.lastError, isNull);
     expect(uploads, 0);
     expect(await local.load(2026, 8), isNull);
     expect(AppPreferences.loadDataResetId('user-a'), 'remote-reset');
