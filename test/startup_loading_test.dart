@@ -186,7 +186,9 @@ void main() {
   testWidgets('erro ao construir armazenamento sai da tela de carregamento', (
     tester,
   ) async {
-    await Hive.box<dynamic>(SupabaseFinancialMonthStore.queueBoxName).close();
+    await tester.runAsync(
+      () => Hive.box<dynamic>(SupabaseFinancialMonthStore.queueBoxName).close(),
+    );
     await tester.pumpWidget(FinFlowApp(supabaseClient: client));
     await tester.pumpAndSettle();
     expect(find.text('Não foi possível iniciar'), findsOneWidget);
