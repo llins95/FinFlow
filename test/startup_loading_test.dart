@@ -38,9 +38,15 @@ void main() {
       'https://example.supabase.co',
       'test-key',
       authOptions: const AuthClientOptions(autoRefreshToken: false),
-      httpClient: MockClient((request) {
+      httpClient: MockClient((request) async {
         requests++;
-        return respond(request);
+        final response = await respond(request);
+        return http.Response.bytes(
+          response.bodyBytes,
+          response.statusCode,
+          request: request,
+          headers: {'content-type': 'application/json'},
+        );
       }),
     );
     final claims = base64Url
