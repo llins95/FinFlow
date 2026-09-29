@@ -14,10 +14,14 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
   SupabaseFinancialMonthStore({
     required SupabaseClient client,
     required this.localStore,
+    this.requestTimeout = const Duration(seconds: 8),
+    this.retryDelay = const Duration(seconds: 30),
   }) : _client = client,
        _userId =
            client.auth.currentUser?.id ??
            (throw StateError('É necessário entrar antes de sincronizar.')) {
+    _status.markPending(_queueCount);
+
     _channel = _client
         .channel('financial-months-$_userId')
         .onPostgresChanges(
@@ -41,12 +45,6 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
         )
         .subscribe();
 
-    if (_queueCount == 0) {
-      _status.markSynced();
-    } else {
-      _status.markPending(_queueCount);
-    }
-
     _retryTimer = Timer.periodic(
       const Duration(seconds: 15),
       (_) => unawaited(syncNow()),
@@ -55,6 +53,8 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
 
   static const String queueBoxName = 'financial_month_sync_queue';
 
+  final Duration requestTimeout;
+  final Duration retryDelay;
   final SupabaseClient _client;
   final FinancialMonthStore localStore;
   final String _userId;
@@ -67,6 +67,8 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
   bool _isSyncing = false;
   bool _isDisposed = false;
   Future<void>? _prepareFuture;
+  bool _resetVerified = false;
+  DateTime? _remoteRetryAfter;
 
   Box<dynamic> get _queue => Hive.box<dynamic>(queueBoxName);
   Iterable<String> get _queueKeys => _queue.keys
@@ -93,31 +95,43 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
     await _migrateLegacyQueue();
 
     try {
-      final resetMonth = await _loadRemoteMonth(
-        PixSettings.storageYear,
-        PixSettings.storageMonth,
-      );
-      final remoteResetId = PixSettings.fromFinancialMonth(
-        resetMonth,
-      ).dataResetId;
-      final localResetId = AppPreferences.loadDataResetId(_userId);
-
-      if (remoteResetId != null && remoteResetId != localResetId) {
-        await localStore.deleteAll();
-        await _deleteQueuedMonths();
-        if (resetMonth != null) {
-          await localStore.save(resetMonth);
-        }
-        await AppPreferences.saveDataResetId(_userId, remoteResetId);
-      }
+      await _checkRemoteReset();
     } catch (error) {
       if (!_isDisposed) {
         _status.markPending(_queueCount, error: error.toString());
       }
     }
 
-    if (!_isDisposed) {
+    if (!_isDisposed && _resetVerified) {
       unawaited(syncNow());
+    }
+  }
+
+  Future<void> _checkRemoteReset() async {
+    final resetMonth = await _loadRemoteMonth(
+      PixSettings.storageYear,
+      PixSettings.storageMonth,
+    );
+    _ensureActive();
+    final remoteResetId = PixSettings.fromFinancialMonth(
+      resetMonth,
+    ).dataResetId;
+    final localResetId = AppPreferences.loadDataResetId(_userId);
+
+    if (remoteResetId != null && remoteResetId != localResetId) {
+      await localStore.deleteAll();
+      await _deleteQueuedMonths();
+      if (resetMonth != null) {
+        await localStore.save(resetMonth);
+      }
+      await AppPreferences.saveDataResetId(_userId, remoteResetId);
+    }
+    _resetVerified = true;
+  }
+
+  void _ensureActive() {
+    if (_isDisposed || _client.auth.currentUser?.id != _userId) {
+      throw StateError('A sessão mudou durante o carregamento.');
     }
   }
 
@@ -138,6 +152,7 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
   @override
   Future<FinancialMonth?> load(int year, int month) async {
     await prepare();
+    _ensureActive();
     final localMonth = await localStore.load(year, month);
 
     try {
@@ -162,6 +177,14 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
       if (!_isDisposed) {
         _status.markPending(_queueCount, error: error.toString());
       }
+      // A failed request does not prove that a month is absent remotely.
+      // Never let the controller seed/queue replacement data in that case.
+      if (localMonth == null) {
+        throw StateError(
+          'Não foi possível consultar os dados e este aparelho ainda não tem '
+          'uma cópia deste mês. Verifique a conexão e tente novamente.',
+        );
+      }
       return localMonth;
     }
   }
@@ -169,6 +192,7 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
   @override
   Future<void> save(FinancialMonth month) async {
     await prepare();
+    _ensureActive();
     await localStore.save(month);
     await _queueMonth(month);
   }
@@ -195,8 +219,7 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
       return;
     }
 
-    if (_queueCount == 0) {
-      _status.markSynced();
+    if (_remoteRetryAfter?.isAfter(DateTime.now()) ?? false) {
       return;
     }
 
@@ -204,6 +227,10 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
     _status.markSyncing(_queueCount);
 
     try {
+      // After an offline start, verify remote deletion before uploading cache.
+      if (!_resetVerified) {
+        await _checkRemoteReset();
+      }
       final keys = _queueKeys.toList();
 
       for (final key in keys) {
@@ -221,19 +248,19 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
           Map<dynamic, dynamic>.from(rawMonth),
         );
 
-        final response = await _client.rpc(
-          'upsert_financial_month',
-          params: {
-            'p_year': month.year,
-            'p_month': month.month,
-            'p_entries': month.entriesJson,
-            'p_client_updated_at': month.clientUpdatedAt.toIso8601String(),
-          },
-        );
+        final response = await _client
+            .rpc(
+              'upsert_financial_month',
+              params: {
+                'p_year': month.year,
+                'p_month': month.month,
+                'p_entries': month.entriesJson,
+                'p_client_updated_at': month.clientUpdatedAt.toIso8601String(),
+              },
+            )
+            .timeout(requestTimeout);
 
-        if (_isDisposed) {
-          return;
-        }
+        _ensureActive();
 
         FinancialMonth? acceptedMonth;
         if (response is List && response.isNotEmpty && response.first is Map) {
@@ -270,19 +297,30 @@ class SupabaseFinancialMonthStore implements FinancialMonthStore {
   }
 
   Future<FinancialMonth?> _loadRemoteMonth(int year, int month) async {
-    final row = await _client
-        .from('financial_months')
-        .select('year, month, entries, client_updated_at')
-        .eq('user_id', _userId)
-        .eq('year', year)
-        .eq('month', month)
-        .maybeSingle();
-
-    if (row == null) {
-      return null;
+    _ensureActive();
+    if (_remoteRetryAfter?.isAfter(DateTime.now()) ?? false) {
+      throw TimeoutException('Conexão indisponível. Usando a cópia local.');
     }
-
-    return FinancialMonth.fromSupabaseRow(Map<String, dynamic>.from(row));
+    try {
+      final row = await _client
+          .from('financial_months')
+          .select('year, month, entries, client_updated_at')
+          .eq('user_id', _userId)
+          .eq('year', year)
+          .eq('month', month)
+          .maybeSingle()
+          .timeout(requestTimeout);
+      _ensureActive();
+      _remoteRetryAfter = null;
+      return row == null
+          ? null
+          : FinancialMonth.fromSupabaseRow(Map<String, dynamic>.from(row));
+    } catch (_) {
+      _resetVerified = false;
+      // Avoid paying the timeout again for every month during startup.
+      _remoteRetryAfter = DateTime.now().add(retryDelay);
+      rethrow;
+    }
   }
 
   Future<void> _handleRealtimeRecord(Map<String, dynamic> row) async {
