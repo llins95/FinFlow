@@ -241,10 +241,10 @@ jobs:
           printf '%s\n' \
             "FinFlow ${version_name} (${version_code})" \
             "" \
-            "Corrige Falta/Sobra para considerar somente despesas e faturas pendentes." \
-            "Aplica o mesmo cálculo no Início e no Histórico." \
-            "O detalhamento mostra somente as pendências incluídas no cálculo." \
-            "Preserva os registros pagos e a transferência de saldo entre meses." \
+            "Corrige o carregamento sem fim ao abrir o FinFlow." \
+            "Limita a espera pelo servidor e utiliza a cópia local disponível." \
+            "Exibe erro e opção de tentar novamente quando os dados não podem ser carregados." \
+            "Protege os dados durante falhas de conexão e verifica exclusões antes de sincronizar novamente." \
             "Preserva a correção do atualizador automático no Windows." \
             "Instaladores Android e Windows validados automaticamente com checksums SHA-256." \
             > release-notes.md
