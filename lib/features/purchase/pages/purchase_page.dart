@@ -1,692 +1,623 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:uuid/uuid.dart';
 
-import '../../../models/purchase.dart';
-import '../../../shared/mock_data.dart';
-import '../../../shared/purchase_repository.dart';
+import '../../../controllers/financial_month_controller.dart';
+import '../../../models/financial_entry.dart';
+import '../../../models/notification_purchase_candidate.dart';
+import '../../../services/finance_service.dart';
+import '../../../services/notification_purchase_import_service.dart';
+import '../../../utils/card_mapper.dart';
+import '../../../utils/money_parser.dart';
+import '../../../utils/select_all_on_focus.dart';
+import 'notification_import_page.dart';
 
 class PurchasePage extends StatefulWidget {
-  const PurchasePage({super.key});
+  const PurchasePage({super.key, required this.controller});
+
+  final FinancialMonthController controller;
 
   @override
   State<PurchasePage> createState() => _PurchasePageState();
 }
 
 class _PurchasePageState extends State<PurchasePage> {
-  final TextEditingController descriptionController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _amountController = TextEditingController();
+  final _installmentsController = TextEditingController(text: '1');
+  late final SelectAllOnFocusNode _amountFocusNode;
+  late final SelectAllOnFocusNode _installmentsFocusNode;
+  final _notificationImportService = const NotificationPurchaseImportService();
 
-  final TextEditingController amountController = TextEditingController(
-    text: '150,00',
-  );
-
-  final TextEditingController installmentsController = TextEditingController(
-    text: '1',
-  );
-
-  final FocusNode amountFocusNode = FocusNode();
-
-  final Uuid uuid = const Uuid();
-
-  int selectedCardIndex = 0;
-  int installments = 1;
-
-  DateTime selectedPurchaseDate = DateTime.now();
-
-  bool showSimulationResult = false;
-  bool purchaseSaved = false;
-
-  final NumberFormat currencyFormatter = NumberFormat.currency(
+  final _currency = NumberFormat.currency(
     locale: 'pt_BR',
     symbol: 'R\$',
     decimalDigits: 2,
   );
+  final _inputCurrency = NumberFormat('#,##0.00', 'pt_BR');
+  final _dateFormat = DateFormat('dd/MM/yyyy', 'pt_BR');
 
-  final NumberFormat inputCurrencyFormatter = NumberFormat('#,##0.00', 'pt_BR');
+  String? _selectedCardId;
+  int _installments = 1;
+  late DateTime _purchaseDate;
+  bool _showSimulation = false;
+  bool _purchaseSaved = false;
+  bool _isSaving = false;
+  String? _notificationSourceId;
 
-  final DateFormat dateFormatter = DateFormat('dd/MM/yyyy', 'pt_BR');
+  int get _amountInCents =>
+      MoneyParser.parseToCents(_amountController.text) ?? 0;
 
   @override
   void initState() {
     super.initState();
-
-    amountFocusNode.addListener(() {
-      if (!amountFocusNode.hasFocus) {
-        formatAmountField();
+    final today = DateTime.now();
+    _amountFocusNode = SelectAllOnFocusNode(_amountController);
+    _installmentsFocusNode = SelectAllOnFocusNode(_installmentsController);
+    _purchaseDate = today.isBefore(FinancialMonthController.firstMonth)
+        ? FinancialMonthController.firstMonth
+        : DateTime(today.year, today.month, today.day);
+    _amountFocusNode.addListener(() {
+      if (!_amountFocusNode.hasFocus) {
+        _formatAmount();
       }
     });
   }
 
   @override
   void dispose() {
-    descriptionController.dispose();
-    amountController.dispose();
-    installmentsController.dispose();
-    amountFocusNode.dispose();
-
+    _amountFocusNode.dispose();
+    _installmentsFocusNode.dispose();
+    _descriptionController.dispose();
+    _amountController.dispose();
+    _installmentsController.dispose();
     super.dispose();
   }
 
-  double get purchaseAmount {
-    var value = amountController.text.trim();
-
-    value = value.replaceAll('R\$', '');
-    value = value.replaceAll(' ', '');
-
-    if (value.contains(',')) {
-      value = value.replaceAll('.', '');
-      value = value.replaceAll(',', '.');
-    }
-
-    return double.tryParse(value) ?? 0;
-  }
-
-  int get purchaseAmountInCents {
-    return (purchaseAmount * 100).round();
-  }
-
-  List<int> get installmentAmountsInCents {
-    if (installments <= 0) {
-      return [];
-    }
-
-    final totalInCents = purchaseAmountInCents;
-    final baseAmount = totalInCents ~/ installments;
-    final remainder = totalInCents % installments;
-
-    return List.generate(installments, (index) {
-      if (index < remainder) {
-        return baseAmount + 1;
+  FinancialEntry _selectedCard(List<FinancialEntry> cards) {
+    for (final card in cards) {
+      if ((card.relatedCardId ?? card.id) == _selectedCardId) {
+        return card;
       }
-
-      return baseAmount;
-    });
+    }
+    return cards.first;
   }
 
-  double amountFromCents(int valueInCents) {
-    return valueInCents / 100;
-  }
-
-  void markFormAsChanged() {
+  void _markChanged() {
     setState(() {
-      showSimulationResult = false;
-      purchaseSaved = false;
+      _showSimulation = false;
+      _purchaseSaved = false;
     });
   }
 
-  void formatAmountField() {
-    final amount = purchaseAmount;
-
-    amountController.text = inputCurrencyFormatter.format(amount);
-
-    amountController.selection = TextSelection.collapsed(
-      offset: amountController.text.length,
+  void _formatAmount() {
+    if (_amountController.text.trim().isEmpty) {
+      return;
+    }
+    _amountController.text = _inputCurrency.format(_amountInCents / 100);
+    _amountController.selection = TextSelection.collapsed(
+      offset: _amountController.text.length,
     );
   }
 
-  void updateInstallments(int value) {
-    final safeValue = value.clamp(1, 99);
-
-    installmentsController.text = safeValue.toString();
-
-    installmentsController.selection = TextSelection.collapsed(
-      offset: installmentsController.text.length,
-    );
-
-    setState(() {
-      installments = safeValue;
-      showSimulationResult = false;
-      purchaseSaved = false;
-    });
-  }
-
-  bool validateForm() {
-    final description = descriptionController.text.trim();
-
-    final typedInstallments = int.tryParse(installmentsController.text.trim());
-
-    if (description.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informe uma descrição para a compra.')),
-      );
-
-      return false;
+  int? _validatedInstallments(List<FinancialEntry> cards) {
+    if (cards.isEmpty) {
+      _showMessage('Cadastre ou ative um cartão antes de salvar a compra.');
+      return null;
+    }
+    if (_descriptionController.text.trim().isEmpty) {
+      _showMessage('Informe uma descrição para a compra.');
+      return null;
+    }
+    if (_amountInCents <= 0) {
+      _showMessage('Informe um valor de compra maior que zero.');
+      return null;
     }
 
-    if (purchaseAmount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Informe um valor de compra maior que zero.'),
-        ),
-      );
-
-      return false;
-    }
-
+    final typedInstallments = int.tryParse(_installmentsController.text.trim());
     if (typedInstallments == null || typedInstallments < 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Informe uma quantidade válida de parcelas.'),
-        ),
-      );
-
-      return false;
+      _showMessage('Informe uma quantidade válida de parcelas.');
+      return null;
     }
-
-    return true;
+    return typedInstallments.clamp(1, 99);
   }
 
-  void simulatePurchase() {
-    formatAmountField();
-
-    if (!validateForm()) {
+  void _simulate(List<FinancialEntry> cards) {
+    _formatAmount();
+    final safeInstallments = _validatedInstallments(cards);
+    if (safeInstallments == null) {
       return;
     }
 
-    final typedInstallments = int.parse(installmentsController.text.trim());
-
-    final safeInstallments = typedInstallments.clamp(1, 99);
-
-    installmentsController.text = safeInstallments.toString();
-
+    _installmentsController.text = safeInstallments.toString();
     FocusScope.of(context).unfocus();
 
     setState(() {
-      installments = safeInstallments;
-      showSimulationResult = true;
-      purchaseSaved = false;
+      _installments = safeInstallments;
+      _showSimulation = true;
+      _purchaseSaved = false;
     });
   }
 
-  Future<void> savePurchase() async {
-    if (!validateForm()) {
+  Future<void> _save(List<FinancialEntry> cards) async {
+    final safeInstallments = _validatedInstallments(cards);
+    if (safeInstallments == null || _isSaving) {
+      return;
+    }
+    if (_purchaseSaved) {
+      _showMessage('Esta compra já foi salva.');
       return;
     }
 
-    if (purchaseSaved) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Esta compra já foi salva.')),
+    setState(() => _isSaving = true);
+
+    try {
+      await widget.controller.addPurchase(
+        description: _descriptionController.text.trim(),
+        amountInCents: _amountInCents,
+        installments: safeInstallments,
+        purchaseDate: _purchaseDate,
+        cardInvoice: _selectedCard(cards),
+        sourceReference: _notificationSourceId,
       );
 
+      if (!mounted) {
+        return;
+      }
+      final notificationSourceId = _notificationSourceId;
+      if (notificationSourceId != null) {
+        await _notificationImportService.dismiss(notificationSourceId);
+      }
+
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _installments = safeInstallments;
+        _purchaseSaved = true;
+        _notificationSourceId = null;
+      });
+      _showMessage('Compra salva e incluída na sincronização.');
+    } catch (_) {
+      if (mounted) {
+        _showMessage('Não foi possível salvar a compra. Tente novamente.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  void _startNewPurchase() {
+    final today = DateTime.now();
+    final safeDate = today.isBefore(FinancialMonthController.firstMonth)
+        ? FinancialMonthController.firstMonth
+        : DateTime(today.year, today.month, today.day);
+
+    _descriptionController.clear();
+    _amountController.clear();
+    _installmentsController.text = '1';
+    setState(() {
+      _purchaseDate = safeDate;
+      _installments = 1;
+      _showSimulation = false;
+      _purchaseSaved = false;
+      _notificationSourceId = null;
+    });
+  }
+
+  Future<void> _openNotificationImports() async {
+    final importedIds = widget.controller.purchaseRecords
+        .map((record) => record.entry.sourceReference)
+        .whereType<String>()
+        .toSet();
+
+    final candidate = await Navigator.of(context)
+        .push<NotificationPurchaseCandidate>(
+          MaterialPageRoute(
+            builder: (context) => NotificationImportPage(
+              ignoredCandidateIds: importedIds,
+              service: _notificationImportService,
+            ),
+          ),
+        );
+    if (candidate == null || !mounted) {
       return;
     }
 
-    final selectedCard = mockCards[selectedCardIndex];
-
-    final purchase = Purchase(
-      id: uuid.v4(),
-      description: descriptionController.text.trim(),
-      amount: purchaseAmount,
-      cardId: selectedCard.id,
-      installments: installments,
-      purchaseDate: selectedPurchaseDate,
+    final candidateDate = DateTime(
+      candidate.occurredAt.year,
+      candidate.occurredAt.month,
+      candidate.occurredAt.day,
     );
+    final safeDate = candidateDate.isBefore(FinancialMonthController.firstMonth)
+        ? FinancialMonthController.firstMonth
+        : candidateDate;
 
-    await PurchaseRepository.add(purchase);
+    _descriptionController.text = candidate.description;
+    _amountController.text = _inputCurrency.format(
+      candidate.amountInCents / 100,
+    );
+    _installmentsController.text = '1';
 
     setState(() {
-      purchaseSaved = true;
+      _purchaseDate = safeDate;
+      _installments = 1;
+      _notificationSourceId = candidate.id;
+      _showSimulation = false;
+      _purchaseSaved = false;
     });
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Compra salva com sucesso!')));
+    _showMessage('Sugestão preenchida. Revise o cartão e confirme a compra.');
   }
 
-  Future<void> selectPurchaseDate() async {
-    final selectedDate = await showDatePicker(
+  Future<void> _selectDate() async {
+    final date = await showDatePicker(
       context: context,
       locale: const Locale('pt', 'BR'),
-      initialDate: selectedPurchaseDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
+      initialDate: _purchaseDate,
+      firstDate: FinancialMonthController.firstMonth,
+      lastDate: DateTime(2100, 12, 31),
       helpText: 'Selecione a data da compra',
       cancelText: 'Cancelar',
       confirmText: 'Confirmar',
-      fieldLabelText: 'Data da compra',
-      fieldHintText: 'dd/mm/aaaa',
     );
-
-    if (selectedDate == null) {
+    if (date == null) {
       return;
     }
 
     setState(() {
-      selectedPurchaseDate = selectedDate;
-      showSimulationResult = false;
-      purchaseSaved = false;
+      _purchaseDate = date;
+      _showSimulation = false;
+      _purchaseSaved = false;
     });
   }
 
-  DateTime addMonths(DateTime date, int monthsToAdd) {
-    final totalMonths = date.month - 1 + monthsToAdd;
-
-    final newYear = date.year + totalMonths ~/ 12;
-    final newMonth = totalMonths % 12 + 1;
-
-    final lastDayOfNewMonth = DateTime(newYear, newMonth + 1, 0).day;
-
-    final safeDay = date.day > lastDayOfNewMonth ? lastDayOfNewMonth : date.day;
-
-    return DateTime(newYear, newMonth, safeDay);
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  List<DateTime> buildInstallmentDates(DateTime firstInvoiceDate) {
-    return List.generate(installments, (index) {
-      return addMonths(firstInvoiceDate, index);
-    });
+  List<int> _installmentAmounts() {
+    final base = _amountInCents ~/ _installments;
+    final remainder = _amountInCents % _installments;
+    return List.generate(
+      _installments,
+      (index) => base + (index < remainder ? 1 : 0),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final selectedCard = mockCards[selectedCardIndex];
+    return AnimatedBuilder(
+      animation: widget.controller,
+      builder: (context, _) {
+        final cards = widget.controller.activeCardInvoices;
+        if (cards.isEmpty) {
+          return const _NoCardsForPurchase();
+        }
 
-    final firstInvoiceDate = selectedCard.invoiceForPurchase(
-      selectedPurchaseDate,
-    );
+        final availableCardIds = cards
+            .map((card) => card.relatedCardId ?? card.id)
+            .toSet();
+        if (_selectedCardId == null ||
+            !availableCardIds.contains(_selectedCardId)) {
+          _selectedCardId = cards.first.relatedCardId ?? cards.first.id;
+        }
+        final selectedInvoice = _selectedCard(cards);
+        final selectedCard = creditCardFromInvoice(selectedInvoice);
+        final selectedId = selectedInvoice.relatedCardId ?? selectedInvoice.id;
 
-    final daysToPay = selectedCard.daysToPay(selectedPurchaseDate);
+        final firstInvoiceDate = selectedCard.invoiceForPurchase(_purchaseDate);
+        final installmentDates = List<DateTime>.generate(
+          _installments,
+          (index) => FinanceService.addMonths(firstInvoiceDate, index),
+        );
+        final installmentAmounts = _installmentAmounts();
 
-    final goesToNextInvoice =
-        selectedPurchaseDate.day > selectedCard.closingDay;
-
-    final installmentDates = buildInstallmentDates(firstInvoiceDate);
-
-    final installmentAmounts = installmentAmountsInCents;
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Simular compra')),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          DropdownButtonFormField<int>(
-            value: selectedCardIndex,
-            decoration: const InputDecoration(
-              labelText: 'Cartão',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.credit_card),
-            ),
-            items: List.generate(mockCards.length, (index) {
-              final card = mockCards[index];
-
-              return DropdownMenuItem<int>(
-                value: index,
-                child: Text(card.name),
-              );
-            }),
-            onChanged: (value) {
-              if (value == null) {
-                return;
-              }
-
-              setState(() {
-                selectedCardIndex = value;
-                showSimulationResult = false;
-                purchaseSaved = false;
-              });
-            },
-          ),
-          const SizedBox(height: 20),
-          TextField(
-            controller: descriptionController,
-            textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Descrição da compra',
-              hintText: 'Ex.: Smart TV Samsung',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.shopping_bag_outlined),
-            ),
-            onChanged: (_) {
-              markFormAsChanged();
-            },
-          ),
-          const SizedBox(height: 20),
-          TextField(
-            controller: amountController,
-            focusNode: amountFocusNode,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            textInputAction: TextInputAction.next,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]')),
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Adicionar compra'),
+            actions: [
+              IconButton(
+                onPressed: _openNotificationImports,
+                tooltip: 'Importar da Carteira do Google',
+                icon: const Icon(FluentIcons.alert_24_regular),
+              ),
             ],
-            decoration: const InputDecoration(
-              labelText: 'Valor da compra',
-              hintText: '0,00',
-              prefixText: 'R\$ ',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.attach_money),
-            ),
-            onChanged: (_) {
-              markFormAsChanged();
-            },
-            onSubmitted: (_) {
-              formatAmountField();
-              FocusScope.of(context).unfocus();
-            },
           ),
-          const SizedBox(height: 20),
-          Row(
+          body: ListView(
+            padding: const EdgeInsets.all(20),
             children: [
-              Expanded(
-                child: TextField(
-                  controller: installmentsController,
-                  keyboardType: TextInputType.number,
-                  textInputAction: TextInputAction.done,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(2),
-                  ],
-                  decoration: const InputDecoration(
-                    labelText: 'Quantidade de parcelas',
-                    hintText: '1',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.calendar_view_month),
-                    suffixText: 'x',
+              DropdownButtonFormField<String>(
+                key: ValueKey(
+                  'purchase-card-$selectedId-${availableCardIds.join('-')}',
+                ),
+                initialValue: selectedId,
+                decoration: const InputDecoration(
+                  labelText: 'Cartão',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(FluentIcons.wallet_credit_card_24_regular),
+                ),
+                items: [
+                  for (final invoice in cards)
+                    DropdownMenuItem<String>(
+                      value: invoice.relatedCardId ?? invoice.id,
+                      child: Text(invoice.name),
+                    ),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _selectedCardId = value;
+                    _showSimulation = false;
+                    _purchaseSaved = false;
+                  });
+                },
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                key: const ValueKey('purchase-description'),
+                controller: _descriptionController,
+                textInputAction: TextInputAction.next,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'Descrição da compra',
+                  hintText: 'Ex.: Smart TV Samsung',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(FluentIcons.shopping_bag_24_regular),
+                ),
+                onChanged: (_) => _markChanged(),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                key: const ValueKey('purchase-amount'),
+                controller: _amountController,
+                focusNode: _amountFocusNode,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]')),
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Valor da compra',
+                  hintText: '0,00',
+                  prefixText: 'R\$ ',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(FluentIcons.money_24_regular),
+                ),
+                onChanged: (_) => _markChanged(),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const ValueKey('purchase-installments'),
+                      controller: _installmentsController,
+                      focusNode: _installmentsFocusNode,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(2),
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: 'Parcelas',
+                        suffixText: 'x',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(FluentIcons.calendar_24_regular),
+                      ),
+                      onChanged: (value) {
+                        final parsed = int.tryParse(value);
+                        setState(() {
+                          if (parsed != null && parsed > 0) {
+                            _installments = parsed.clamp(1, 99);
+                          }
+                          _showSimulation = false;
+                          _purchaseSaved = false;
+                        });
+                      },
+                    ),
                   ),
-                  onChanged: (value) {
-                    final parsedValue = int.tryParse(value);
-
-                    if (parsedValue == null || parsedValue < 1) {
-                      setState(() {
-                        showSimulationResult = false;
-                        purchaseSaved = false;
-                      });
-
-                      return;
-                    }
-
-                    setState(() {
-                      installments = parsedValue.clamp(1, 99);
-
-                      showSimulationResult = false;
-                      purchaseSaved = false;
-                    });
-                  },
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 150,
+                    child: DropdownButtonFormField<int>(
+                      key: ValueKey('quick-installments-$_installments'),
+                      isExpanded: true,
+                      initialValue: _installments <= 24 ? _installments : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Seleção rápida',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        for (var value = 1; value <= 24; value++)
+                          DropdownMenuItem(
+                            value: value,
+                            child: Text(value == 1 ? 'À vista' : '${value}x'),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) {
+                          return;
+                        }
+                        _installmentsController.text = value.toString();
+                        setState(() {
+                          _installments = value;
+                          _showSimulation = false;
+                          _purchaseSaved = false;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _selectDate,
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Data da compra',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(FluentIcons.calendar_month_24_regular),
+                  ),
+                  child: Text(_dateFormat.format(_purchaseDate)),
                 ),
               ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 150,
-                child: DropdownButtonFormField<int>(
-                  value: installments <= 24 ? installments : null,
-                  decoration: const InputDecoration(
-                    labelText: 'Seleção rápida',
-                    border: OutlineInputBorder(),
-                  ),
-                  hint: const Text('Escolher'),
-                  items: List.generate(24, (index) {
-                    final value = index + 1;
-
-                    return DropdownMenuItem<int>(
-                      value: value,
-                      child: Text(value == 1 ? 'À vista' : '${value}x'),
-                    );
-                  }),
-                  onChanged: (value) {
-                    if (value == null) {
-                      return;
-                    }
-
-                    updateInstallments(value);
-                  },
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                key: const ValueKey('simulate-purchase'),
+                onPressed: () => _simulate(cards),
+                icon: const Icon(FluentIcons.arrow_right_24_regular),
+                label: const Text('Simular parcelas'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(56),
                 ),
               ),
+              if (_showSimulation) ...[
+                const SizedBox(height: 24),
+                _SimulationResult(
+                  description: _descriptionController.text.trim(),
+                  cardName: selectedCard.name,
+                  purchaseAmount: _currency.format(_amountInCents / 100),
+                  purchaseDate: _dateFormat.format(_purchaseDate),
+                  firstInvoiceDate: _dateFormat.format(firstInvoiceDate),
+                  daysToPay: selectedCard.daysToPay(_purchaseDate),
+                  installmentDates: installmentDates,
+                  installmentAmounts: installmentAmounts,
+                  currency: _currency,
+                  dateFormat: _dateFormat,
+                ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  key: const ValueKey('save-or-new-purchase'),
+                  onPressed: _isSaving
+                      ? null
+                      : _purchaseSaved
+                      ? _startNewPurchase
+                      : () => _save(cards),
+                  icon: Icon(
+                    _isSaving
+                        ? Icons.hourglass_top
+                        : _purchaseSaved
+                        ? FluentIcons.add_circle_24_regular
+                        : FluentIcons.save_24_regular,
+                  ),
+                  label: Text(
+                    _isSaving
+                        ? 'Salvando compra...'
+                        : _purchaseSaved
+                        ? 'Registrar nova compra'
+                        : 'Salvar compra',
+                  ),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(56),
+                  ),
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 20),
-          InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: selectPurchaseDate,
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Data da compra',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.calendar_month),
-              ),
-              child: Text(
-                dateFormatter.format(selectedPurchaseDate),
-                style: const TextStyle(fontSize: 16),
-              ),
+        );
+      },
+    );
+  }
+}
+
+class _SimulationResult extends StatelessWidget {
+  const _SimulationResult({
+    required this.description,
+    required this.cardName,
+    required this.purchaseAmount,
+    required this.purchaseDate,
+    required this.firstInvoiceDate,
+    required this.daysToPay,
+    required this.installmentDates,
+    required this.installmentAmounts,
+    required this.currency,
+    required this.dateFormat,
+  });
+
+  final String description;
+  final String cardName;
+  final String purchaseAmount;
+  final String purchaseDate;
+  final String firstInvoiceDate;
+  final int daysToPay;
+  final List<DateTime> installmentDates;
+  final List<int> installmentAmounts;
+  final NumberFormat currency;
+  final DateFormat dateFormat;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Resultado da simulação',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
-          ),
-          const SizedBox(height: 20),
-          FilledButton.icon(
-            onPressed: simulatePurchase,
-            icon: const Icon(Icons.arrow_forward),
-            label: const Text('Próximo'),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(56),
+            const SizedBox(height: 16),
+            Text(description, style: Theme.of(context).textTheme.titleMedium),
+            Text('$cardName • compra em $purchaseDate'),
+            const SizedBox(height: 12),
+            Text(
+              purchaseAmount,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
-          ),
-          if (showSimulationResult) ...[
-            const SizedBox(height: 28),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Resultado da simulação',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Descrição',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      descriptionController.text.trim(),
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Valor da compra',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      currencyFormatter.format(purchaseAmount),
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Parcelamento',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      installments == 1 ? 'À vista' : '$installments parcelas',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Cartão selecionado',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      selectedCard.name,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Data da compra',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      dateFormatter.format(selectedPurchaseDate),
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Vencimento da primeira parcela',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      dateFormatter.format(firstInvoiceDate),
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Prazo até o primeiro pagamento',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '$daysToPay dias',
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: goesToNextInvoice
-                            ? Colors.green.withValues(alpha: 0.15)
-                            : Colors.orange.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            goesToNextInvoice
-                                ? Icons.check_circle
-                                : Icons.warning_amber_rounded,
-                            color: goesToNextInvoice
-                                ? Colors.green
-                                : Colors.orange,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              goesToNextInvoice
-                                  ? 'A primeira parcela entrará '
-                                        'na próxima fatura.'
-                                  : 'A primeira parcela entrará '
-                                        'na fatura atual.',
-                              style: TextStyle(
-                                color: goesToNextInvoice
-                                    ? Colors.green
-                                    : Colors.orange,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+            const SizedBox(height: 12),
+            Text(
+              'Primeiro vencimento: $firstInvoiceDate '
+              '($daysToPay dias para pagar)',
+            ),
+            const Divider(height: 28),
+            for (var index = 0; index < installmentDates.length; index++)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(child: Text('${index + 1}')),
+                title: Text(
+                  '${index + 1}/${installmentDates.length} • '
+                  '${dateFormat.format(installmentDates[index])}',
+                ),
+                trailing: Text(
+                  currency.format(installmentAmounts[index] / 100),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Cronograma das parcelas',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      installments == 1
-                          ? 'Pagamento em uma única fatura.'
-                          : 'Veja o vencimento e o valor '
-                                'de cada parcela.',
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                    const SizedBox(height: 20),
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: installments,
-                      separatorBuilder: (context, index) {
-                        return const Divider(height: 24);
-                      },
-                      itemBuilder: (context, index) {
-                        final installmentNumber = index + 1;
-
-                        final installmentDate = installmentDates[index];
-
-                        final installmentValue = amountFromCents(
-                          installmentAmounts[index],
-                        );
-
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: CircleAvatar(
-                            child: Text('$installmentNumber'),
-                          ),
-                          title: Text(
-                            '$installmentNumber/'
-                            '$installments',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Text(
-                            'Vencimento: '
-                            '${dateFormatter.format(installmentDate)}',
-                          ),
-                          trailing: Text(
-                            currencyFormatter.format(installmentValue),
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: purchaseSaved ? null : savePurchase,
-              icon: Icon(purchaseSaved ? Icons.check : Icons.save),
-              label: Text(purchaseSaved ? 'Compra salva' : 'Salvar compra'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(56),
-              ),
-            ),
           ],
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NoCardsForPurchase extends StatelessWidget {
+  const _NoCardsForPurchase();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Adicionar compra')),
+      body: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Cadastre ou ative um cartão na aba Cartões antes de registrar '
+            'uma compra.',
+            textAlign: TextAlign.center,
+          ),
+        ),
       ),
     );
   }

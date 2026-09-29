@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "finflow" "\0"
+            VALUE "CompanyName", "FinFlow" "\0"
+            VALUE "FileDescription", "FinFlow - Controle financeiro pessoal" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "finflow" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "finflow.exe" "\0"
-            VALUE "ProductName", "finflow" "\0"
+            VALUE "InternalName", "FinFlow" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 FinFlow. All rights reserved." "\0"
+            VALUE "OriginalFilename", "FinFlow.exe" "\0"
+            VALUE "ProductName", "FinFlow" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
